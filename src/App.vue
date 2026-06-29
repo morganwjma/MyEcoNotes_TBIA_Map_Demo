@@ -2,8 +2,12 @@
   <div class="flex flex-col md:flex-row h-screen w-full overflow-hidden bg-slate-50 text-slate-800 font-sans" style="height: 100dvh; width: 100vw;">
     
     <div class="w-full md:w-96 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col md:h-full z-20 transition-all duration-300 shadow-xl shrink-0"
-         :class="{'h-auto max-h-[50vh]': isMobilePanelOpen, 'h-16 overflow-hidden md:h-full': !isMobilePanelOpen}">
+         :class="{'h-auto max-h-[80vh]': isMobilePanelOpen, 'h-16 overflow-hidden md:h-full': !isMobilePanelOpen}">
       
+      <div v-if="isLoading" class="absolute top-0 left-0 w-full h-1 bg-slate-100 z-50">
+        <div class="h-full bg-blue-500 transition-all duration-300" :style="{ width: progress + '%' }"></div>
+      </div>
+
       <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-white cursor-pointer md:cursor-auto" @click="toggleMobilePanel">
         <div>
           <h1 class="text-lg md:text-xl font-bold text-emerald-600">MyEcoNotes TBAI 調查資料地圖</h1>
@@ -43,7 +47,7 @@
         <div v-if="statusMessage" class="mb-4">
           <div class="text-xs font-bold text-blue-600 mb-1 flex justify-between">
             <span>{{ statusMessage }}</span>
-            <span v-if="progress > 0">{{ progress }}%</span>
+            <span>{{ progress }}%</span>
           </div>
           <div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
             <div class="h-full bg-blue-500 transition-all duration-300 ease-out" :style="{ width: progress + '%' }"></div>
@@ -62,39 +66,8 @@
     </div>
 
     <div class="flex-1 relative bg-slate-100 flex flex-col h-full z-0 w-full">
-      <div ref="mapContainer" class="absolute inset-0 w-full h-full" style="height: 100%; width: 100%; z-index: 1;"></div>
-      
-      <div class="absolute bottom-4 right-4 md:bottom-6 md:right-6 bg-white/95 backdrop-blur-md p-4 rounded-xl shadow-xl border border-slate-200 pointer-events-auto scale-90 md:scale-100 origin-bottom-right" style="z-index: 1000;">
-        <div class="text-xs font-bold text-slate-800 mb-2 flex items-center justify-center border-b border-slate-200 pb-2">
-          <span>4×4 雙變量覆蓋矩陣</span>
-        </div>
-        
-        <div class="relative w-52 h-40 mx-auto mt-8 mb-2">
-          
-          <div class="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 w-20 h-20 rotate-[-45deg] flex flex-col shadow-lg">
-            <div class="flex w-full h-1/4" v-for="y in [3,2,1,0]" :key="'y'+y">
-              <div class="bivariate-cell w-1/4 h-full" v-for="x in [0,1,2,3]" :key="'x'+x" 
-                :style="{ backgroundColor: getBivariateColorCode(x, y) }"
-                :title="`公民科學層級: ${x} | 非公民科學層級: ${y}`">
-              </div>
-            </div>
-          </div>
-
-          <div class="absolute bottom-1 right-0 text-[11px] text-blue-700 font-bold whitespace-nowrap">
-            公民科學
-          </div>
-          <div class="absolute bottom-1 left-0 text-[11px] text-orange-700 font-bold whitespace-nowrap">
-            非公民科學
-          </div>
-          <div class="absolute top-[-10px] left-1/2 -translate-x-1/2 text-[11px] text-purple-700 font-bold whitespace-nowrap">
-            核心雙高熱區
-          </div>
-          <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-[9px] text-slate-400 font-medium whitespace-nowrap">
-            (無資料)
-          </div>
-        </div>
+      <div ref="mapContainer" class="absolute inset-0 w-full h-full"></div>
       </div>
-    </div>
   </div>
 </template>
 
@@ -333,22 +306,21 @@ const startAnalysis = async () => {
       
       const fillOpacity = (citEffort === 0 && offEffort === 0) ? 0.0 : 0.78;
 
-      const tooltipHtml = `
-        <div style="font-family: sans-serif; min-width: 240px; padding: 2px;">
-          <div style="color: ${hexColor}; font-size: 14px; font-weight: bold; margin-bottom: 4px;">Res7: ${row.h3_index}</div>
-          <hr style="border-color: #e5e5e5; margin: 6px 0;">
-          <div style="font-weight: bold; color: #666; margin-bottom: 2px;">📂 驗證基底 (次數)</div>
-          <div style="margin-left: 6px; font-size: 12px;">
-            <span style="color: #1d4ed8;">• 公民科學: <b>${citEffort}</b> 次</span> | <span style="color: #ea580c;">• 非公民科學: <b>${offEffort}</b> 次</span>
+const tooltipHtml = `
+        <div style="font-family: sans-serif; min-width: 260px; padding: 4px;">
+          <div style="color: ${hexColor}; font-size: 14px; font-weight: bold; margin-bottom: 6px;">網格: ${row.h3_index}</div>
+          
+          <div style="background: #f8fafc; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
+            <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 3px;">📊 調查強度 (公民/非公民)</div>
+            <div style="display: flex; gap: 10px; font-size: 12px;">
+              <span style="color: #1d4ed8;">公民: <b>${citEffort}</b></span>
+              <span style="color: #ea580c;">非公民: <b>${offEffort}</b></span>
+            </div>
           </div>
-          <hr style="border-color: #e5e5e5; margin: 6px 0;">
-          <div style="font-weight: bold; color: #16a34a; margin-bottom: 2px;">🟢 系統建模組</div>
-          <div style="margin-left: 6px; font-size: 12px; color: #444;">
-            • SPUE: <b>${row.sys_encounter_rate ? row.sys_encounter_rate.toFixed(2) : '0.00'}</b> | • 香農: <b>${row.sys_shannon_index ? row.sys_shannon_index.toFixed(2) : '0.00'}</b>
-          </div>
+
+          
         </div>
       `;
-
       L.polygon(boundary, {
         color: hexColor,   
         weight: 1.5,       
