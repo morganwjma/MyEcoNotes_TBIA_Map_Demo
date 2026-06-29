@@ -181,8 +181,7 @@ const reportData = ref(null);
 const aiSummary = ref('');
 
 // ⚠️ 請填入你的 Gemini API Key
-const GEMINI_API_KEY = 'AQ.Ab8RN6InKHdxdZSwGh-Zn20JGzddY2SavlKyIc5Wakk9k37MAw'; 
-
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const SUPABASE_URL = "https://psprlovfzsabgubugngb.supabase.co";
 const SUPABASE_KEY = "sb_publishable_YWMUkNkPlcA1skYHWVmLUw_XMADzCwi";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
