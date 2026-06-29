@@ -353,13 +353,13 @@ const tooltipHtml = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
             <div>
               <div style="font-weight: bold; color: #059669;">系統調查</div>
-              <div>率: <b>${row.sys_encounter_rate?.toFixed(2) || 0}</b></div>
-              <div>香濃: <b>${row.sys_shannon_index?.toFixed(2) || 0}</b></div>
+              <div>遭遇率: <b>${row.sys_encounter_rate?.toFixed(2) || 0}</b></div>
+              <div>多樣性指數（H'）: <b>${row.sys_shannon_index?.toFixed(2) || 0}</b></div>
             </div>
             <div>
               <div style="font-weight: bold; color: #7c3aed;">隨機調查</div>
-              <div>率: <b>${row.opp_encounter_rate?.toFixed(2) || 0}</b></div>
-              <div>香濃: <b>${row.opp_shannon_index?.toFixed(2) || 0}</b></div>
+              <div>遭遇率: <b>${row.opp_encounter_rate?.toFixed(2) || 0}</b></div>
+              <div>多樣性指數（H'）: <b>${row.opp_shannon_index?.toFixed(2) || 0}</b></div>
             </div>
           </div>
       `;
