@@ -67,7 +67,38 @@
 
     <div class="flex-1 relative bg-slate-100 flex flex-col h-full z-0 w-full">
       <div ref="mapContainer" class="absolute inset-0 w-full h-full"></div>
+      
+<div class="absolute bottom-4 right-4 z-[9999] bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-slate-200 overflow-hidden transition-all duration-300 pointer-events-auto"
+     :class="{'w-56 h-48': isLegendExpanded, 'w-12 h-12': !isLegendExpanded}">
+    
+    <div v-if="!isLegendExpanded" @click.stop="isLegendExpanded = true" 
+         class="w-full h-full flex items-center justify-center cursor-pointer hover:bg-slate-100">
+       <div class="w-8 h-8 rotate-[-45deg] grid grid-cols-4 grid-rows-4 gap-0.5">
+         <div v-for="i in 16" :key="i" 
+              :style="{ backgroundColor: getBivariateColorCode((i-1)%4, Math.floor((i-1)/4)) }">
+         </div>
+       </div>
+    </div>
+        <div v-else class="p-3 w-full h-full flex flex-col">
+           <div class="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
+             <span class="text-[10px] font-bold">4×4 矩陣</span>
+             <button @click="isLegendExpanded = false" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
+           </div>
+           <div class="relative w-28 h-28 mx-auto mt-2">
+             <div class="absolute w-20 h-20 rotate-[-45deg] flex flex-col shadow-lg left-4 top-4">
+               <div class="flex w-full h-1/4" v-for="y in [3,2,1,0]" :key="'y'+y">
+                 <div class="w-1/4 h-full border-[0.5px] border-white/20" v-for="x in [0,1,2,3]" :key="'x'+x" 
+                   :style="{ backgroundColor: getBivariateColorCode(x, y) }"></div>
+               </div>
+             </div>
+           </div>
+           <div class="text-[9px] text-center mt-2 flex justify-between px-2">
+             <span class="text-orange-700">非公民</span>
+             <span class="text-blue-700">公民</span>
+           </div>
+        </div>
       </div>
+    </div>
   </div>
 </template>
 
@@ -319,7 +350,18 @@ const tooltipHtml = `
           </div>
 
           
-        </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+              <div style="font-weight: bold; color: #059669;">系統調查</div>
+              <div>率: <b>${row.sys_encounter_rate?.toFixed(2) || 0}</b></div>
+              <div>香濃: <b>${row.sys_shannon_index?.toFixed(2) || 0}</b></div>
+            </div>
+            <div>
+              <div style="font-weight: bold; color: #7c3aed;">隨機調查</div>
+              <div>率: <b>${row.opp_encounter_rate?.toFixed(2) || 0}</b></div>
+              <div>香濃: <b>${row.opp_shannon_index?.toFixed(2) || 0}</b></div>
+            </div>
+          </div>
       `;
       L.polygon(boundary, {
         color: hexColor,   
@@ -360,7 +402,11 @@ const tooltipHtml = `
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
+/* 確保圖例容器強制在最上層且可點擊 */
+.absolute.bottom-4.right-4 {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
 .bivariate-cell { transition: transform 0.1s; border: 1px solid rgba(255,255,255,0.2); }
 .bivariate-cell:hover { transform: scale(1.15); z-index: 10; border: 1px solid #94a3b8; box-shadow: 0 0 10px rgba(0,0,0,0.15); }
 
