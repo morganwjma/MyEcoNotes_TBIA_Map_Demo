@@ -242,6 +242,7 @@ const parseInputOrArray = (str) => {
 };
 
 const buildColabPayload = () => ({
+  p_target_h3s: [], // ★ 明確傳遞空陣列，啟動後端的全域掃描
   p_inc_class: parseInputOrArray(form.value.inc_class),
   p_exc_class: parseInputOrArray(form.value.exc_class),
   p_inc_order: parseInputOrArray(form.value.inc_order),
@@ -251,11 +252,9 @@ const buildColabPayload = () => ({
   p_inc_genus: parseInputOrArray(form.value.inc_genus),
   p_exc_genus: parseInputOrArray(form.value.exc_genus),
   p_inc_species: parseInputOrArray(form.value.inc_species),
-  p_exc_species: parseInputOrArray(form.value.exc_species),
-  p_limit: 5000,
-  p_offset: 0
+  p_exc_species: parseInputOrArray(form.value.exc_species)
+  // ⚠️ 已經將舊版的 p_limit 與 p_offset 徹底刪除！
 });
-
 const getH3Engine = () => {
   if (h3 && typeof h3.latLngToCell === 'function') return h3;
   if (h3 && h3.default && typeof h3.default.latLngToCell === 'function') return h3.default;
@@ -386,83 +385,125 @@ onMounted(() => {
 });
 
 // ==========================================
-// 5. 空間渲染核心邏輯
+// 5. 全新空間渲染核心邏輯 (精準煞車防當機版)
 // ==========================================
 const startAnalysis = async () => {
   if (isLoading.value) return;
   isLoading.value = true;
-  progress.value = 0;
+  progress.value = 5; 
   layerGroup.clearLayers();
 
-  // ★ 每次開始分析清空舊的 AI 報告
   aiSummary.value = ''; 
   hasGeneratedReport.value = false;
-
   if (isMobile.value) isMobilePanelOpen.value = false;
 
   try {
     const h3Engine = getH3Engine();
-    const basePayload = buildColabPayload(); 
+    
+    let currentOffset = 0;
+    const limitSize = 1000;
+    let expectedTotal = Infinity; // 🌟 煞車終點線：一開始設定為無限大
+    let accumulatedValidData = [];
 
-    statusMessage.value = '部署高密度地理網格...';
-    
-    const TARGET_H3_RESOLUTION = 7;
-    const taiwanGrids = new Set();
-    const step = 0.01; 
-    
-    for (let lat = 21.0; lat <= 26.0; lat += step) {
-      for (let lng = 118.0; lng <= 123.0; lng += step) {
-        taiwanGrids.add(h3Engine.latLngToCell(lat, lng, TARGET_H3_RESOLUTION));
+    statusMessage.value = '連線資料庫，請求空間數據...';
+
+    // 🌟 迴圈條件改為：當前指標還沒碰到終點線，就繼續跑
+    while (currentOffset < expectedTotal) {
+      const payload = {
+        ...buildColabPayload(),
+        p_limit: limitSize,
+        p_offset: currentOffset
+      };
+
+      const { data, error } = await supabase.rpc("get_habitat_grid_data", payload);
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        break; // 雙重防呆：如果意外沒資料了，也強制停止
       }
-    }
-    const gridArray = Array.from(taiwanGrids);
 
-    const CHUNK_SIZE = 2000; 
-    const chunks = [];
-    for (let i = 0; i < gridArray.length; i += CHUNK_SIZE) {
-      chunks.push(gridArray.slice(i, i + CHUNK_SIZE));
-    }
+      // 🌟 煞車定位：從第一批資料取得總筆數，確立終點線
+      if (expectedTotal === Infinity) {
+        expectedTotal = data[0].total_count;
+        console.log(`後端廣播：本次檢索共有 ${expectedTotal} 個地理網格。`);
+      }
 
-    let allData = [];
-    
-    for (let i = 0; i < chunks.length; i++) {
-      statusMessage.value = `跨區平行檢索 (${i+1}/${chunks.length})...`;
-      progress.value = Math.round(((i + 1) / chunks.length) * 100);
-      
-      let retry = 0;
-      while (retry < 3) {
-        try {
-          const payload = { ...basePayload, p_target_h3s: chunks[i] };
-          const { data, error } = await supabase.rpc("get_habitat_grid_data", payload);
+      const validChunkData = data.filter(d => 
+        d.sys_shannon_index > 0 || d.opp_shannon_index > 0 || d.citizen_effort > 0 || d.official_effort > 0
+      );
+
+      if (validChunkData.length > 0) {
+        accumulatedValidData = [...accumulatedValidData, ...validChunkData];
+        
+        validChunkData.forEach(row => {
+          if (!row.h3_index) return;
+          const boundary = h3Engine.cellToBoundary(row.h3_index);
+          const citEffort = row.citizen_effort || 0;
+          const offEffort = row.official_effort || 0;
           
-          if (error) throw error;
-          if (data) {
-            const validData = data.filter(d => d.sys_shannon_index > 0 || d.citizen_effort > 0 || d.official_effort > 0);
-            allData = allData.concat(validData);
-          }
-          break;
-        } catch (err) {
-          retry++;
-          console.warn(`第 ${i+1} 包超時重試 (${retry}/3)...`);
-          if (retry === 3) throw err; 
-          await new Promise(r => setTimeout(r, 1000)); 
-        }
+          const citBin = getEffortBin(citEffort);
+          const offBin = getEffortBin(offEffort);
+          const hexColor = getBivariateColorCode(citBin, offBin);
+          const fillOpacity = (citEffort === 0 && offEffort === 0) ? 0.0 : 0.78;
+
+          const tooltipHtml = `
+            <div style="font-family: sans-serif; min-width: 260px; padding: 4px; font-size: 12px; line-height: 1.4;">
+              <div style="color: ${hexColor}; font-weight: bold; margin-bottom: 6px; font-size: 14px;">網格: ${row.h3_index}</div>
+              <div style="background: #f1f5f9; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
+                <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 2px;">📂 調查次數</div>
+                <div style="display: flex; gap: 12px;">
+                  <span>公民科學: <b style="color: #1d4ed8;">${citEffort}</b></span>
+                  <span>非公民科學: <b style="color: #ea580c;">${offEffort}</b></span>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>
+                  <div style="font-weight: bold; color: #16a34a; font-size: 11px;">系統調查</div>
+                  <div style="font-size: 11px;">遭遇率: <b>${row.sys_encounter_rate?.toFixed(2) || 0}</b></div>
+                  <div style="font-size: 11px;">香濃: <b>${row.sys_shannon_index?.toFixed(2) || 0}</b></div>
+                </div>
+                <div>
+                  <div style="font-weight: bold; color: #7c3aed; font-size: 11px;">隨機調查</div>
+                  <div style="font-size: 11px;">遭遇率: <b>${row.opp_encounter_rate?.toFixed(2) || 0}</b></div>
+                  <div style="font-size: 11px;">香濃: <b>${row.opp_shannon_index?.toFixed(2) || 0}</b></div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          L.polygon(boundary, {
+            color: hexColor,   
+            weight: 1.5,       
+            stroke: (citEffort > 0 || offEffort > 0), 
+            fillColor: hexColor,
+            fillOpacity: fillOpacity
+          }).bindTooltip(tooltipHtml, {
+            direction: 'top',
+            className: 'custom-tooltip'
+          }).addTo(layerGroup);
+        });
       }
+
+      currentOffset += data.length;      
+      // 🌟 精準的進度條計算
+      const currentProgress = Math.floor((currentOffset / expectedTotal) * 100);
+      progress.value = Math.min(95, currentProgress);
+      statusMessage.value = `正在繪製地圖... (${Math.min(currentOffset, expectedTotal)} / ${expectedTotal})`;
+
+      // 🌟 煞車皮核心：強制讓瀏覽器主執行緒休息 50 毫秒，釋放記憶體並順利把 SVG 畫出來
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
-    
-    if (allData.length === 0) {
-      alert('該條件下在台灣及離島範圍內未取得任何紀錄。');
+
+    if (accumulatedValidData.length === 0) {
+      alert('該條件下在所有範圍內未取得任何調查或觀測紀錄。');
       isLoading.value = false;
       statusMessage.value = '無資料';
+      progress.value = 0;
       return;
     }
 
-    progress.value = 100;
-    statusMessage.value = '地圖圖層渲染中...';
-
-    // 繪製大邊框
     try {
-      const allValidH3s = allData.map(d => d.h3_index);
+      const allValidH3s = accumulatedValidData.map(d => d.h3_index);
       const mergeFunc = h3Engine.cellsToMultiPolygon || h3Engine.h3SetToMultiPolygon; 
       if (mergeFunc) {
         const multiPolygon = mergeFunc(allValidH3s, true);
@@ -480,69 +521,17 @@ const startAnalysis = async () => {
       console.warn("H3 大邊界融合失敗", e);
     }
 
-    // 繪製個別格塊
-    allData.forEach(row => {
-      if (!row.h3_index) return;
-      
-      const boundary = h3Engine.cellToBoundary(row.h3_index);
-      const citEffort = row.citizen_effort || 0;
-      const offEffort = row.official_effort || 0;
-      
-      const citBin = getEffortBin(citEffort);
-      const offBin = getEffortBin(offEffort);
-      const hexColor = getBivariateColorCode(citBin, offBin);
-      
-      const fillOpacity = (citEffort === 0 && offEffort === 0) ? 0.0 : 0.78;
-
-      const tooltipHtml = `
-        <div style="font-family: sans-serif; min-width: 260px; padding: 4px; font-size: 12px; line-height: 1.4;">
-          <div style="color: ${hexColor}; font-weight: bold; margin-bottom: 6px; font-size: 14px;">網格: ${row.h3_index}</div>
-          
-          <div style="background: #f1f5f9; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
-            <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 2px;">📂 調查次數</div>
-            <div style="display: flex; gap: 12px;">
-              <span>公民科學: <b style="color: #1d4ed8;">${row.citizen_effort || 0}</b></span>
-              <span>非公民科學: <b style="color: #ea580c;">${row.official_effort || 0}</b></span>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <div>
-              <div style="font-weight: bold; color: #16a34a; font-size: 11px;">系統調查</div>
-              <div style="font-size: 11px;">遭遇率: <b>${row.sys_encounter_rate?.toFixed(2) || 0}</b></div>
-              <div style="font-size: 11px;">香濃: <b>${row.sys_shannon_index?.toFixed(2) || 0}</b></div>
-            </div>
-            <div>
-              <div style="font-weight: bold; color: #7c3aed; font-size: 11px;">隨機調查</div>
-              <div style="font-size: 11px;">遭遇率: <b>${row.opp_encounter_rate?.toFixed(2) || 0}</b></div>
-              <div style="font-size: 11px;">香濃: <b>${row.opp_shannon_index?.toFixed(2) || 0}</b></div>
-            </div>
-          </div>
-        </div>
-      `;
-
-      L.polygon(boundary, {
-        color: hexColor,   
-        weight: 1.5,       
-        stroke: (citEffort > 0 || offEffort > 0), 
-        fillColor: hexColor,
-        fillOpacity: fillOpacity
-      }).bindTooltip(tooltipHtml, {
-        direction: 'top',
-        className: 'custom-tooltip'
-      }).addTo(layerGroup);
-    });
-
-    statusMessage.value = `完成！成功包含金門離島，共渲染 ${allData.length} 個特徵網格`;
+    progress.value = 100;
+    statusMessage.value = `完成！成功渲染全台 ${expectedTotal} 個特徵網格`;
     setTimeout(() => { statusMessage.value = ''; progress.value = 0; }, 3000);
 
-    // ★ 觸發 AI 簡報生成
-    generateAIReport(allData);
+    generateAIReport(accumulatedValidData);
 
   } catch (error) {
     console.error("執行錯誤:", error);
     alert(`執行發生錯誤：\n${error.message || JSON.stringify(error)}`);
     statusMessage.value = '執行錯誤';
+    progress.value = 0;
   } finally {
     isLoading.value = false;
   }
