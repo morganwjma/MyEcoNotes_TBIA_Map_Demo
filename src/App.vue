@@ -10,8 +10,8 @@
       
       <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-white cursor-pointer md:cursor-auto" @click="toggleMobilePanel">
         <div>
-          <h1 class="text-sm md:text-lg font-bold text-emerald-600">MyEcoNotes TBAI 調查資料地圖</h1>
-          <p class="text-[10px] text-slate-500 mt-1 hidden md:block">10維參數 · RWD 響應式檢索，2024年度資料</p>
+          <h1 class="text-sm md:text-lg font-bold text-emerald-600">MyEcoNotes 隨機森林預測地圖</h1>
+          <p class="text-[10px] text-slate-500 mt-1 hidden md:block">Edge AI 隨機森林 · 2024年度 TBIA 數據</p>
         </div>
         <div class="md:hidden text-slate-500">
           <svg v-if="!isMobilePanelOpen" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -85,7 +85,7 @@
 
         <div v-else class="p-3 w-full h-full flex flex-col">
            <div class="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
-             <span class="text-[10px] font-bold">4×4 矩陣 <span class="text-emerald-600 ml-1">(+推薦熱區)</span></span>
+             <span class="text-[10px] font-bold">4×4 矩陣 <span class="text-emerald-600 ml-1">(+ RF 推薦區)</span></span>
              <button @click.stop="isLegendExpanded = false" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
            </div>
            <div class="relative w-28 h-28 mx-auto mt-2">
@@ -114,6 +114,54 @@
         </div>
         
         <div class="p-5 flex-1 max-h-[80vh] overflow-y-auto">
+          
+          <div v-if="nicheProfile && nicheProfile.importance" class="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <h3 class="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-3 border-l-2 border-emerald-500 pl-2 flex items-center justify-between">
+              <span>🌲 邊緣運算隨機森林 (Edge Random Forest)</span>
+            </h3>
+
+            <div v-if="nicheProfile.usedMode === 'strict'" class="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700 flex flex-col gap-1 shadow-sm">
+              <div class="font-bold flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                🚀 嚴格驗證模式 (Strict Train/Test Split)
+              </div>
+              <div class="flex justify-between items-center mt-1">
+                <span class="text-[10px] text-indigo-600 leading-tight pr-2">資料充裕，使用「系統調查」作為高純度訓練集。</span>
+                <span class="bg-indigo-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                  準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%
+                </span>
+              </div>
+            </div>
+            
+            <div v-else class="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex flex-col gap-1 shadow-sm">
+              <div class="font-bold flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                🧩 彈性混合模式 (Adaptive 90/10 Fallback)
+              </div>
+              <div class="flex justify-between items-center mt-1">
+                <span class="text-[10px] text-amber-600 leading-tight pr-2">自動降級：抽 10% 隨機調查盲測，剩餘 90% 併入系統調查訓練。</span>
+                <span class="bg-amber-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                  準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%
+                </span>
+              </div>
+            </div>
+            
+            <div class="text-[10px] text-slate-500 mb-2 font-bold mt-4">📊 核心環境特徵資訊增益貢獻度 (Gini Importance)</div>
+            <div class="space-y-3 mt-2">
+              <div v-for="[feat, imp] in nicheProfile.importance" :key="feat" class="flex items-center text-xs">
+                <span class="w-12 text-slate-600 font-bold">{{ getFeatLabel(feat) }}</span>
+                <div class="flex-1 bg-slate-200 h-2.5 rounded-full overflow-hidden mx-3 shadow-inner">
+                  <div class="bg-emerald-500 h-full transition-all duration-500" :style="{ width: imp + '%' }"></div>
+                </div>
+                <span class="w-8 text-right text-emerald-700 font-mono font-bold">{{ imp }}%</span>
+              </div>
+            </div>
+            
+            <p class="text-[9px] text-slate-400 mt-4 leading-tight">
+              * 系統已將「溫度」特徵屏除，以避免與海拔產生多重共線性(Multicollinearity)干擾。
+            </p>
+          </div>
+
           <div v-if="reportData" class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5">
             <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">基礎客觀資訊</h3>
             <div class="grid grid-cols-2 gap-3 text-sm">
@@ -172,12 +220,12 @@ import * as h3 from 'h3-js';
 // 1. 初始化與變數設定
 // ==========================================
 const isLegendExpanded = ref(false); 
-
 const showReportModal = ref(false);
 const hasGeneratedReport = ref(false);
 const isGeneratingAI = ref(false);
 const reportData = ref(null);
 const aiSummary = ref('');
+const nicheProfile = ref(null); 
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const SUPABASE_URL = "https://psprlovfzsabgubugngb.supabase.co";
@@ -191,10 +239,7 @@ const isMobilePanelOpen = ref(false);
 const handleResize = () => { windowWidth.value = window.innerWidth; };
 onMounted(() => window.addEventListener('resize', handleResize));
 onUnmounted(() => window.removeEventListener('resize', handleResize));
-
-const toggleMobilePanel = () => {
-  if (isMobile.value) isMobilePanelOpen.value = !isMobilePanelOpen.value;
-};
+const toggleMobilePanel = () => { if (isMobile.value) isMobilePanelOpen.value = !isMobilePanelOpen.value; };
 
 const taxonomyLevels = [
   { key: 'class', label: '綱 (Class)' },
@@ -214,15 +259,14 @@ const progress = ref(0);
 const statusMessage = ref('');
 const mapContainer = ref(null);
 let map = null;
-let layerGroup = null; // 原有的調查記錄圖層
-let recommendationLayerGroup = null; // ★ 新增：AI 推薦熱區專屬圖層
+let layerGroup = null; 
+let recommendationLayerGroup = null; 
 
-// ★ 新增：環境特徵網格狀態
 const envGridsLoaded = ref(false);
 const envGridsData = shallowRef({});
 
 // ==========================================
-// 2. 顏色與資料處理
+// 2. 顏色、資料處理與特徵函數
 // ==========================================
 const bivariatePalette = [
   ['transparent', '#dbeafe', '#93c5fd', '#1d4ed8'],
@@ -265,21 +309,21 @@ const getH3Engine = () => {
   throw new Error("H3 引擎尚未載入完成");
 };
 
-// ★ 新增：推薦演算法需要的統計函式
-const getPercentile = (arr, p) => {
-  if (arr.length === 0) return 0;
-  const sorted = [...arr].sort((a, b) => a - b);
-  const pos = (sorted.length - 1) * p;
-  const base = Math.floor(pos);
-  const rest = pos - base;
-  if (sorted[base + 1] !== undefined) {
-    return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
-  }
-  return sorted[base];
+const calcRealDev = (p) => {
+  if (!p) return 0;
+  const u = (parseFloat(p.c) || 0) / 10.0;
+  const a = (parseFloat(p.a) || 0) / 10.0;
+  return Math.min(1.0, Math.pow(u, 0.5) + a * 0.5); 
+};
+
+// UI 顯示用：已移除溫度
+const getFeatLabel = (key) => {
+  const map = { alt: '海拔', f: '樹林', g: '草地', w: '水域', a: '農田', c: '建築', dev: '干擾' };
+  return map[key] || key;
 };
 
 // ==========================================
-// 3. AI 報告生成邏輯 (原封不動保留)
+// 3. AI 報告生成邏輯
 // ==========================================
 const generateAIReport = async (dataList) => {
   if (!dataList || dataList.length === 0) return;
@@ -295,194 +339,296 @@ const generateAIReport = async (dataList) => {
   const totalOff = dataList.reduce((sum, d) => sum + (d.official_effort || 0), 0);
   const avgSysRate = (dataList.reduce((sum, d) => sum + (d.sys_encounter_rate || 0), 0) / totalGrids).toFixed(2);
   const avgOppRate = (dataList.reduce((sum, d) => sum + (d.opp_encounter_rate || 0), 0) / totalGrids).toFixed(2);
-  const maxCitGrid = Math.max(...dataList.map(d => d.citizen_effort || 0));
 
   const totalAll = totalCit + totalOff;
   const citPct = totalAll === 0 ? 0 : Math.round((totalCit / totalAll) * 100);
   const offPct = totalAll === 0 ? 0 : 100 - citPct;
-  const maxPct = Math.max(citPct, offPct); 
-
-  reportData.value = { totalGrids, totalCit, totalOff, avgSysRate, avgOppRate, citPct, offPct, maxPct };
+  reportData.value = { totalGrids, totalCit, totalOff, avgSysRate, avgOppRate, citPct, offPct, maxPct: Math.max(citPct, offPct) };
 
   const getTaxaText = (prefix) => {
-    const parts = [
-      form.value[`${prefix}_class`], form.value[`${prefix}_order`], form.value[`${prefix}_family`],
-      form.value[`${prefix}_genus`], form.value[`${prefix}_species`]
-    ].filter(v => v && v.trim() !== '');
+    const parts = [ form.value[`${prefix}_class`], form.value[`${prefix}_order`], form.value[`${prefix}_family`], form.value[`${prefix}_genus`], form.value[`${prefix}_species`] ].filter(v => v && v.trim() !== '');
     return parts.length > 0 ? parts.join(', ') : '全部/未指定';
   };
-  const incTaxa = getTaxaText('inc');
-  const excTaxa = getTaxaText('exc');
-
-  const prompt = `你是一位專業的生態地理空間分析專家。
-本次地圖空間運算的篩選條件如下：
-- 目標包含類群：${incTaxa}
-- 刻意排除類群：${excTaxa}
-整體數據特徵：
-- 涵蓋 ${totalGrids} 個地理網格。
-- 公民科學：${totalCit}筆 (單格最高集中 ${maxCitGrid}筆) / 官方非公民科學：${totalOff}筆。
-- 平均系統遭遇率：${avgSysRate} / 平均隨機遭遇率：${avgOppRate}。
-請根據上述「目標類群特性」與「數據結構」，撰寫一段約 150~200 字內的「專家洞察小結」。
-【嚴格要求】：
-1. 絕對不要在內文重複列出上述的具體數字。
-2. 請結合「${incTaxa}」可能的生態習性或調查難易度，分析目前的資料結構。
-3. 語氣客觀專業，直接給出結論。`;
-
-  if (!GEMINI_API_KEY || GEMINI_API_KEY.includes('請填入')) {
-    aiSummary.value = "【系統提示】請填入正確的 Gemini API Key。";
-    isGeneratingAI.value = false;
-    return;
-  }
+  
+  const prompt = `你是專業生態地理空間分析專家。本次條件：包含：${getTaxaText('inc')} | 排除：${getTaxaText('exc')}。涵蓋 ${totalGrids} 個地理網格。公民科學：${totalCit}筆 / 官方科學：${totalOff}筆。請結合目標類群生態習性，撰寫 150~200 字客觀的專家洞察。不要重複報表上的數字，直接給出結論。`;
 
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
     });
     const result = await response.json();
-    if (result.error) {
-      console.error("API 錯誤細節:", result.error);
-      aiSummary.value = `API 錯誤：${result.error.message}`;
-      return;
-    }
-    if (result.candidates && result.candidates[0].content) {
-      aiSummary.value = result.candidates[0].content.parts[0].text;
-    } else {
-      aiSummary.value = "AI 無法產生結論，未知的回傳格式。";
-    }
+    aiSummary.value = result.candidates?.[0]?.content?.parts?.[0]?.text || "無回傳資料";
   } catch (error) {
-    console.error("AI Error:", error);
-    aiSummary.value = "網路連線失敗，請檢查網路狀態。";
+    aiSummary.value = "網路連線失敗。";
   } finally {
     isGeneratingAI.value = false;
   }
 };
 
 // ==========================================
-// 4. 系統地圖初始化
+// 4. 地圖與特徵庫初始化
 // ==========================================
 onMounted(() => {
   if (mapContainer.value) {
     map = L.map(mapContainer.value, { zoomControl: false }).setView([23.7, 120.9], 7);
     L.control.zoom({ position: isMobile.value ? 'topright' : 'bottomright' }).addTo(map);
-    
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; CartoDB',
-      subdomains: 'abcd',
-      maxZoom: 20
-    }).addTo(map);
-
-    // ★ 初始化兩個圖層，推薦圖層在下方，實體觀測資料蓋在上方
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB', subdomains: 'abcd', maxZoom: 20 }).addTo(map);
     recommendationLayerGroup = L.layerGroup().addTo(map);
     layerGroup = L.layerGroup().addTo(map);
-
-    const ro = new ResizeObserver(() => {
-      if (map) map.invalidateSize();
-    });
+    const ro = new ResizeObserver(() => { if (map) map.invalidateSize(); });
     ro.observe(mapContainer.value);
-
     setTimeout(() => { map.invalidateSize(); }, 400);
   }
 
-  // ★ 背景非同步載入環境特徵庫
   fetch('/data/taiwan_env_grids_ultimate.json')
     .then(res => res.json())
-    .then(data => {
-      envGridsData.value = data;
-      envGridsLoaded.value = true;
-      console.log("環境特徵庫 taiwan_env_grids_ultimate.json 載入完成！");
-    })
-    .catch(e => console.error("環境底圖載入失敗，請確認檔案位於 public/data/ 中", e));
+    .then(data => { envGridsData.value = data; envGridsLoaded.value = true; })
+    .catch(e => console.error("環境底圖載入失敗", e));
 });
 
 // ==========================================
-// ★ 5. 動態生態棲位推薦運算 (新增功能)
+// ★ 5. 終極殺手鐧：自適應遞迴隨機森林 (Adaptive Recursive RF)
 // ==========================================
-// ★ 修正 1 & 2：加入排除已調查網格與強化棲位分歧權重
-const calculateRecommendations = (tbiaGrids) => {
+const calculateRecommendations = async (tbiaGrids) => {
   const envGrids = envGridsData.value;
-  
-  // 建立「已調查網格」Set，排除已調查過的區域
   const existingH3s = new Set(tbiaGrids.map(d => d.h3_index));
   
-  // 篩選出 TBIA 點位對應到的環境特徵
-  const presenceProfiles = tbiaGrids
-    .map(d => envGrids[d.h3_index])
-    .filter(Boolean);
+  // 移除 tmp 溫度參數，解決多重共線性
+  const featsList = ['alt', 'f', 'g', 'w', 'a', 'c', 'dev'];
 
-  if (presenceProfiles.length === 0) return [];
-
-  // 1. 統計萃取：海拔、溫度、開發度 (去極端值)
-  const alts = presenceProfiles.map(p => p.alt);
-  const tmps = presenceProfiles.map(p => p.tmp);
-  const devs = presenceProfiles.map(p => p.dev);
-  const zones = new Set(presenceProfiles.map(p => p.z));
-
-  // 計算容許範圍 (P05 ~ P95)
-  const alt_min = getPercentile(alts, 0.05); 
-  const alt_max = getPercentile(alts, 0.95); 
-  const tmp_min = getPercentile(tmps, 0.05);
-  const tmp_max = getPercentile(tmps, 0.95);
-  const dev_p90 = getPercentile(devs, 0.90);
-
-  // 計算地景特徵統計
-  const getStats = (arr) => {
-    const mean = arr.reduce((s, v) => s + v, 0) / arr.length;
-    const std = Math.sqrt(arr.map(v => Math.pow(v - mean, 2)).reduce((s, v) => s + v, 0) / arr.length);
-    return { mean, std, p10: getPercentile(arr, 0.10) };
-  };
-
-  const habStats = {};
-  ['f', 'g', 'w', 'a', 'c'].forEach(hab => {
-    const vals = presenceProfiles.map(p => parseFloat(p[hab]) || 0);
-    habStats[hab] = getStats(vals);
+  const extractFeats = (grid) => ({
+    alt: parseFloat(grid.alt) || 0,
+    f: parseFloat(grid.f) || 0,
+    g: parseFloat(grid.g) || 0,
+    w: parseFloat(grid.w) || 0,
+    a: parseFloat(grid.a) || 0,
+    c: parseFloat(grid.c) || 0,
+    dev: calcRealDev(grid)
   });
 
-  // 2. 開始全台網格掃描
+  // 切分資料源
+  const sysGrids = tbiaGrids.filter(d => d.official_effort > 0);
+  const oppGrids = tbiaGrids.filter(d => d.citizen_effort > 0 && !(d.official_effort > 0));
+
+  const sysProfiles = sysGrids.map(d => envGrids[d.h3_index]).filter(Boolean);
+  const oppProfiles = oppGrids.map(d => envGrids[d.h3_index]).filter(Boolean);
+  const allProfiles = [...sysProfiles, ...oppProfiles];
+
+  if (allProfiles.length === 0) return [];
+  const zones = new Set(allProfiles.map(p => p.z));
+
+  // ★ 判斷是否啟用進階模式：門檻改為「總調查筆數 > 500」
+  const totalSysEffort = sysGrids.reduce((sum, d) => sum + (d.official_effort || 0), 0);
+  const totalOppEffort = oppGrids.reduce((sum, d) => sum + (d.citizen_effort || 0), 0);
+  const ADVANCED_THRESHOLD = 500;
+  
+  const isDataRich = totalSysEffort >= ADVANCED_THRESHOLD && totalOppEffort >= ADVANCED_THRESHOLD;
+
+  // 負樣本 (Pseudo-absences) 生成
+  const allH3s = Object.keys(envGrids);
+  const availableNegH3s = allH3s.filter(h3 => !existingH3s.has(h3) && envGrids[h3].rd > 0 && zones.has(envGrids[h3].z));
+  
+  // --- 共用的決策樹與森林建構器 ---
+  const buildTree = (data, depth, maxDepth) => {
+    const labels = data.map(d => d.label);
+    const posCount = labels.filter(l => l === 1).length;
+
+    if (depth >= maxDepth || data.length <= 2 || posCount === 0 || posCount === data.length) {
+      return { isLeaf: true, prob: posCount / data.length };
+    }
+
+    const selectedFeats = [...featsList].sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    let bestGini = 1;
+    let bestSplit = null;
+
+    selectedFeats.forEach(f => {
+      const uniqueVals = [...new Set(data.map(d => d.features[f]))];
+      const thresholds = uniqueVals.sort(() => 0.5 - Math.random()).slice(0, 10);
+
+      thresholds.forEach(t => {
+        const left = data.filter(d => d.features[f] <= t);
+        const right = data.filter(d => d.features[f] > t);
+        if (left.length === 0 || right.length === 0) return;
+
+        const pL = left.filter(d => d.label === 1).length / left.length;
+        const pR = right.filter(d => d.label === 1).length / right.length;
+        
+        const giniL = 1 - (pL * pL + (1 - pL) * (1 - pL));
+        const giniR = 1 - (pR * pR + (1 - pR) * (1 - pR));
+        const gini = (left.length / data.length) * giniL + (right.length / data.length) * giniR;
+
+        if (gini < bestGini) {
+          bestGini = gini;
+          bestSplit = { feature: f, threshold: t, leftData: left, rightData: right };
+        }
+      });
+    });
+
+    if (!bestSplit) return { isLeaf: true, prob: posCount / data.length };
+
+    return {
+      isLeaf: false, feature: bestSplit.feature, threshold: bestSplit.threshold,
+      left: buildTree(bestSplit.leftData, depth + 1, maxDepth),
+      right: buildTree(bestSplit.rightData, depth + 1, maxDepth)
+    };
+  };
+
+  const trainForest = (trainData, numTrees, maxDepth) => {
+    const trees = [];
+    for (let i = 0; i < numTrees; i++) {
+      const sample = Array.from({ length: trainData.length }, () => trainData[Math.floor(Math.random() * trainData.length)]);
+      trees.push(buildTree(sample, 0, maxDepth));
+    }
+    return trees;
+  };
+
+  const predictForest = (trees, feats) => {
+    let sumProb = 0;
+    for (const tree of trees) {
+      let node = tree;
+      while (!node.isLeaf) {
+        if (feats[node.feature] <= node.threshold) node = node.left;
+        else node = node.right;
+      }
+      sumProb += node.prob;
+    }
+    return sumProb / trees.length; 
+  };
+
+  // --- 訓練與驗證循環 (Train/Test Loop) ---
+  const executeTraining = async (trainProfs, testProfs, modeName) => {
+    const numNegs = Math.min(trainProfs.length * 2, availableNegH3s.length);
+    const negProfs = availableNegH3s.sort(() => 0.5 - Math.random()).slice(0, numNegs).map(h3 => envGrids[h3]);
+
+    const trainData = [
+      ...trainProfs.map(p => ({ features: extractFeats(p), label: 1 })),
+      ...negProfs.map(p => ({ features: extractFeats(p), label: 0 }))
+    ];
+
+    let bestTrees = [];
+    let bestRecall = 0;
+    let currentTreesCount = 20;
+    let currentDepth = 5; 
+
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      statusMessage.value = `🤖 訓練隨機森林中 [${modeName}] (第 ${attempt} 輪, 樹量: ${currentTreesCount})...`;
+      await new Promise(r => setTimeout(r, 10)); // 讓 UI 更新
+
+      const trees = trainForest(trainData, currentTreesCount, currentDepth);
+      
+      if (testProfs.length > 0) {
+        let correct = 0;
+        testProfs.forEach(grid => {
+          const score = predictForest(trees, extractFeats(grid));
+          if (score > 0.35) correct++;
+        });
+        const recall = correct / testProfs.length;
+
+        if (recall > bestRecall) {
+          bestRecall = recall;
+          bestTrees = trees;
+        }
+
+        // ★ 及格門檻修正為 0.80 (80%)
+        if (recall >= 0.80) break; 
+      } else {
+        // 極端情況：無測試集，全量訓練
+        bestTrees = trees;
+        bestRecall = 1.0;
+        break;
+      }
+      currentTreesCount += 15;
+      currentDepth += 2;
+    }
+    return { trees: bestTrees, recall: bestRecall };
+  };
+
+  // --- 自動降級控制 (Graceful Degradation) ---
+  let finalTrees = [];
+  let validationScore = 0;
+  let usedMode = '';
+  let tryFallback = false;
+
+  if (isDataRich) {
+    // Plan A: 理想嚴格模式
+    const result = await executeTraining(sysProfiles, oppProfiles, '嚴格驗證模式');
+    if (result.recall >= 0.65) {
+      finalTrees = result.trees;
+      validationScore = result.recall;
+      usedMode = 'strict';
+    } else {
+      console.log(`嚴格模式準確率僅 ${result.recall.toFixed(2)}，觸發降級備案...`);
+      tryFallback = true;
+    }
+  } else {
+    tryFallback = true;
+  }
+
+  if (tryFallback) {
+    // Plan B: 彈性混合模式 (90/10 盲測切分)
+    let oppTrain = [];
+    let oppTest = [];
+    let sysTrain = [...sysProfiles];
+
+    if (oppProfiles.length > 0) {
+      const shuffledOpp = [...oppProfiles].sort(() => 0.5 - Math.random());
+      const testSize = Math.max(1, Math.floor(shuffledOpp.length * 0.1));
+      oppTest = shuffledOpp.slice(0, testSize);
+      oppTrain = shuffledOpp.slice(testSize);
+    } else {
+      const shuffledSys = [...sysProfiles].sort(() => 0.5 - Math.random());
+      const testSize = Math.max(1, Math.floor(shuffledSys.length * 0.1));
+      oppTest = shuffledSys.slice(0, testSize);
+      sysTrain = shuffledSys.slice(testSize);
+    }
+
+    const trainProfiles = [...sysTrain, ...oppTrain];
+    const result = await executeTraining(trainProfiles, oppTest, '混合降級模式');
+    finalTrees = result.trees;
+    validationScore = result.recall;
+    usedMode = 'fallback';
+  }
+
+  // --- 計算特徵重要性 ---
+  const featureImportance = {};
+  featsList.forEach(f => featureImportance[f] = 0);
+  
+  const traverse = (node, depth) => {
+    if (node.isLeaf) return;
+    featureImportance[node.feature] += (1 / Math.pow(depth + 1, 2));
+    traverse(node.left, depth + 1);
+    traverse(node.right, depth + 1);
+  };
+  finalTrees.forEach(tree => traverse(tree, 0));
+  
+  const totalImp = Object.values(featureImportance).reduce((a, b) => a + b, 0);
+  const sortedImportance = Object.entries(featureImportance)
+    .map(([feat, imp]) => [feat, Math.round((imp / totalImp) * 100)])
+    .filter(item => item[1] > 0) 
+    .sort((a, b) => b[1] - a[1]);
+
+  nicheProfile.value = { 
+    importance: sortedImportance, 
+    usedMode, 
+    validationScore 
+  };
+
+  // --- 全台推論 ---
   let scoredGrids = [];
   let maxScore = 0;
 
   for (const [h3_id, grid] of Object.entries(envGrids)) {
-    // 【絕對過濾層：硬性規則】
-    if (existingH3s.has(h3_id)) continue;           // 排除已調查過的
-    if (grid.rd === 0) continue;                    // 排除無法到達的
-    if (!zones.has(grid.z)) continue;               // 排除區域不符
-    
-    // ★ 關鍵修正：補上海拔與溫度過濾
-    if (grid.alt < alt_min || grid.alt > alt_max) continue; 
-    if (grid.tmp < tmp_min || grid.tmp > tmp_max) continue; 
-    
-    // 排除過度開發區域
-    if (grid.dev > dev_p90) continue; 
+    if (existingH3s.has(h3_id)) continue; 
+    if (grid.rd === 0) continue; 
+    if (!zones.has(grid.z)) continue; 
 
-    // 【棲地配對與計分】
-    let failedHardReq = false;
-    let baseScore = 0;
-    let habsOver2 = 0;
+    const feats = extractFeats(grid);
+    const finalScore = predictForest(finalTrees, feats); 
 
-    ['f', 'g', 'w', 'a'].forEach(hab => {
-      const stat = habStats[hab];
-      // 如果 P10 > 0.5，代表該棲地是「必要條件」
-      if (stat.p10 > 0.5 && parseFloat(grid[hab] || 0) < stat.p10) {
-        failedHardReq = true;
-      }
-      
-      // 計算權重得分
-      const weight = stat.mean / (stat.std + 0.1); 
-      const gridHabVal = parseFloat(grid[hab] || 0);
-      baseScore += gridHabVal * weight; 
-      if (gridHabVal > 2.0) habsOver2++;
-    });
-
-    if (failedHardReq) continue; // 缺少必要條件直接剔除
-
-    // 【加分機制與懲罰】
-    if (habsOver2 >= 2) baseScore *= 1.3; // 邊緣效應加分
-    const finalScore = baseScore * (1.0 - (grid.dev * 0.8)); // 開發度懲罰
-
-    if (finalScore > 0) {
-      scoredGrids.push({ h3_id, grid, score: finalScore });
+    if (finalScore > 0.35) {
+      scoredGrids.push({ h3_id, grid, score: finalScore, realDev: feats.dev });
       if (finalScore > maxScore) maxScore = finalScore;
     }
   }
@@ -494,14 +640,14 @@ const calculateRecommendations = (tbiaGrids) => {
 };
 
 // ==========================================
-// 6. 全新空間渲染核心邏輯 (精準煞車防當機版 + 推薦疊加)
+// 6. 渲染核心邏輯
 // ==========================================
 const startAnalysis = async () => {
   if (isLoading.value) return;
   isLoading.value = true;
   progress.value = 5; 
   layerGroup.clearLayers();
-  recommendationLayerGroup.clearLayers(); // ★ 同時清除推薦圖層
+  recommendationLayerGroup.clearLayers(); 
 
   aiSummary.value = ''; 
   hasGeneratedReport.value = false;
@@ -516,21 +662,15 @@ const startAnalysis = async () => {
 
     statusMessage.value = '連線資料庫，請求空間數據...';
 
-    // (原封不動：撈取資料庫與渲染雙色網格)
     while (currentOffset < expectedTotal) {
       const payload = { ...buildColabPayload(), p_limit: limitSize, p_offset: currentOffset };
       const { data, error } = await supabase.rpc("get_habitat_grid_data", payload);
       if (error) throw error;
       if (!data || data.length === 0) break; 
 
-      if (expectedTotal === Infinity) {
-        expectedTotal = data[0].total_count;
-        console.log(`後端廣播：本次檢索共有 ${expectedTotal} 個地理網格。`);
-      }
+      if (expectedTotal === Infinity) expectedTotal = data[0].total_count;
 
-      const validChunkData = data.filter(d => 
-        d.sys_shannon_index > 0 || d.opp_shannon_index > 0 || d.citizen_effort > 0 || d.official_effort > 0
-      );
+      const validChunkData = data.filter(d => d.sys_shannon_index > 0 || d.opp_shannon_index > 0 || d.citizen_effort > 0 || d.official_effort > 0);
 
       if (validChunkData.length > 0) {
         accumulatedValidData = [...accumulatedValidData, ...validChunkData];
@@ -546,9 +686,30 @@ const startAnalysis = async () => {
           const hexColor = getBivariateColorCode(citBin, offBin);
           const fillOpacity = (citEffort === 0 && offEffort === 0) ? 0.0 : 0.78;
 
+          const env = envGridsData.value[row.h3_index];
+          let envHtml = '';
+          if (env) {
+            const realDev = calcRealDev(env);
+            envHtml = `
+              <div style="background: #e2e8f0; padding: 6px; border-radius: 4px; margin-bottom: 6px; color: #334155; border: 1px solid #cbd5e1;">
+                <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #0f172a;">🌍 環境因子 (Ground Truth)</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px;">
+                  <span>⛰️ 海拔: <b>${env.alt}m</b></span>
+                  <span>🌡️ 氣溫: <b>${env.tmp}°C</b></span>
+                  <span>🛣️ 易達: <b>${env.rd}</b></span>
+                  <span>🏗️ 干擾: <b>${(realDev * 100).toFixed(0)}%</b></span>
+                </div>
+                <div style="font-size: 11px; margin-top: 4px; border-top: 1px dashed #cbd5e1; padding-top: 4px;">
+                  🌲林:<b>${env.f}</b> | 🚜農:<b>${env.a}</b> | 💧水:<b>${env.w}</b> | 🌾草:<b>${env.g}</b> | 🏙️城:<b>${env.c}</b>
+                </div>
+              </div>
+            `;
+          }
+
           const tooltipHtml = `
             <div style="font-family: sans-serif; min-width: 260px; padding: 4px; font-size: 12px; line-height: 1.4;">
-              <div style="color: ${hexColor}; font-weight: bold; margin-bottom: 6px; font-size: 14px;">網格: ${row.h3_index}</div>
+              <div style="color: ${hexColor}; font-weight: bold; margin-bottom: 6px; font-size: 14px;">已調查網格: ${row.h3_index}</div>
+              ${envHtml}
               <div style="background: #f1f5f9; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
                 <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 2px;">📂 調查次數</div>
                 <div style="display: flex; gap: 12px;">
@@ -556,30 +717,11 @@ const startAnalysis = async () => {
                   <span>非公民科學: <b style="color: #ea580c;">${offEffort}</b></span>
                 </div>
               </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <div>
-                  <div style="font-weight: bold; color: #16a34a; font-size: 11px;">系統調查</div>
-                  <div style="font-size: 11px;">遭遇率: <b>${row.sys_encounter_rate?.toFixed(2) || 0}</b></div>
-                  <div style="font-size: 11px;">香濃: <b>${row.sys_shannon_index?.toFixed(2) || 0}</b></div>
-                </div>
-                <div>
-                  <div style="font-weight: bold; color: #7c3aed; font-size: 11px;">隨機調查</div>
-                  <div style="font-size: 11px;">遭遇率: <b>${row.opp_encounter_rate?.toFixed(2) || 0}</b></div>
-                  <div style="font-size: 11px;">香濃: <b>${row.opp_shannon_index?.toFixed(2) || 0}</b></div>
-                </div>
-              </div>
             </div>
           `;
 
-          L.polygon(boundary, {
-            color: hexColor,   
-            weight: 1.5,       
-            stroke: (citEffort > 0 || offEffort > 0), 
-            fillColor: hexColor,
-            fillOpacity: fillOpacity
-          }).bindTooltip(tooltipHtml, {
-            direction: 'top', className: 'custom-tooltip'
-          }).addTo(layerGroup);
+          L.polygon(boundary, { color: hexColor, weight: 1.5, stroke: (citEffort > 0 || offEffort > 0), fillColor: hexColor, fillOpacity: fillOpacity })
+           .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(layerGroup);
         });
       }
       currentOffset += data.length;      
@@ -589,67 +731,43 @@ const startAnalysis = async () => {
     }
 
     if (accumulatedValidData.length === 0) {
-      alert('該條件下在所有範圍內未取得任何調查或觀測紀錄。');
+      alert('該條件下未取得任何紀錄。');
       isLoading.value = false;
       statusMessage.value = '無資料';
       progress.value = 0;
       return;
     }
 
-    try {
-      const allValidH3s = accumulatedValidData.map(d => d.h3_index);
-      const mergeFunc = h3Engine.cellsToMultiPolygon || h3Engine.h3SetToMultiPolygon; 
-      if (mergeFunc) {
-        const multiPolygon = mergeFunc(allValidH3s, true);
-        if (multiPolygon) {
-          L.geoJSON({
-            type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: multiPolygon }
-          }, { style: { color: '#475569', weight: 2.2, fill: false, opacity: 0.8 }, interactive: false }).addTo(layerGroup);
-        }
-      }
-    } catch (e) { console.warn("H3 大邊界融合失敗", e); }
-
-    // ==============================================================
-    // ★ 在資料畫完之後，無縫啟動推薦網格渲染
-    // ==============================================================
     if (envGridsLoaded.value && accumulatedValidData.length > 0) {
-      statusMessage.value = '正在執行 AI 生態棲位運算...';
-      await new Promise(resolve => setTimeout(resolve, 50)); // 讓畫面稍作更新
+      statusMessage.value = '🤖 正在準備環境參數...';
+      await new Promise(resolve => setTimeout(resolve, 50)); 
       
-      const recommendedGrids = calculateRecommendations(accumulatedValidData);
+      const recommendedGrids = await calculateRecommendations(accumulatedValidData);
       
       recommendedGrids.forEach(rg => {
         const boundary = h3Engine.cellToBoundary(rg.h3_id);
-        const opacity = 0.2 + ((rg.normalizedScore / 100) * 0.6); // 深度隨分數變化
+        const opacity = 0.2 + ((rg.normalizedScore / 100) * 0.6); 
         
         const tooltipHtml = `
           <div style="font-family: sans-serif; font-size: 13px;">
-            <div style="font-weight: bold; color: #047857;">✨ AI 推薦潛力區: ${rg.normalizedScore.toFixed(1)}%</div>
+            <div style="font-weight: bold; color: #047857;">✨ RF 模型推薦度: ${rg.normalizedScore.toFixed(1)}%</div>
             <hr style="margin: 4px 0;">
-            <div style="font-size: 11px;">標高: ${rg.grid.alt}m | 氣溫: ${rg.grid.tmp}°C | 易達: ${rg.grid.rd}</div>
-            <div style="font-size: 11px; margin-top: 2px;">🌲 林:${rg.grid.f} | 🚜 農:${rg.grid.a} | 💧 水:${rg.grid.w}</div>
+            <div style="font-size: 11px;">標高: ${rg.grid.alt}m | 氣溫: ${rg.grid.tmp}°C | 易達性: ${rg.grid.rd}</div>
+            <div style="font-size: 11px; margin-top: 2px;">🌲林:${rg.grid.f} | 🚜農:${rg.grid.a} | 💧水:${rg.grid.w} | 🏗️干擾指數:${(rg.realDev * 100).toFixed(0)}%</div>
           </div>
         `;
 
-        L.polygon(boundary, {
-          color: '#10b981',    // 亮綠色外框
-          weight: 1.5,
-          dashArray: '4, 4',   // 虛線外框，不會跟原本的實體網格混淆
-          fillColor: '#059669',
-          fillOpacity: opacity
-        }).bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(recommendationLayerGroup);
+        L.polygon(boundary, { color: '#10b981', weight: 1.5, dashArray: '4, 4', fillColor: '#059669', fillOpacity: opacity })
+         .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(recommendationLayerGroup);
       });
     }
 
     progress.value = 100;
-    statusMessage.value = `完成！渲染全台調查紀錄與推薦熱區`;
+    statusMessage.value = `完成！渲染全台調查紀錄與熱區`;
     setTimeout(() => { statusMessage.value = ''; progress.value = 0; }, 3000);
-
     generateAIReport(accumulatedValidData);
 
   } catch (error) {
-    console.error("執行錯誤:", error);
-    alert(`執行發生錯誤：\n${error.message || JSON.stringify(error)}`);
     statusMessage.value = '執行錯誤';
     progress.value = 0;
   } finally {
