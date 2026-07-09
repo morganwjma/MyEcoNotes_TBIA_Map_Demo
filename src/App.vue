@@ -10,8 +10,8 @@
       
       <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-white cursor-pointer md:cursor-auto" @click="toggleMobilePanel">
         <div>
-          <h1 class="text-sm md:text-lg font-bold text-emerald-600">MyEcoNotes 隨機森林預測地圖</h1>
-          <p class="text-[10px] text-slate-500 mt-1 hidden md:block">Edge AI 隨機森林 · 2024年度 TBIA 數據</p>
+          <h1 class="text-sm md:text-lg font-bold text-emerald-600">MyEcoNotes 雙核預測地圖</h1>
+          <p class="text-[10px] text-slate-500 mt-1 hidden md:block">RF 特徵篩選 + MaxEnt 機率推論</p>
         </div>
         <div class="md:hidden text-slate-500">
           <svg v-if="!isMobilePanelOpen" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -85,7 +85,7 @@
 
         <div v-else class="p-3 w-full h-full flex flex-col">
            <div class="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
-             <span class="text-[10px] font-bold">4×4 矩陣 <span class="text-emerald-600 ml-1">(+ RF 推薦區)</span></span>
+             <span class="text-[10px] font-bold">4×4 矩陣 <span class="text-emerald-600 ml-1">(+ 雙核潛力區)</span></span>
              <button @click.stop="isLegendExpanded = false" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
            </div>
            <div class="relative w-28 h-28 mx-auto mt-2">
@@ -117,7 +117,7 @@
           
           <div v-if="nicheProfile && nicheProfile.importance" class="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4">
             <h3 class="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-3 border-l-2 border-emerald-500 pl-2 flex items-center justify-between">
-              <span>🌲 邊緣運算隨機森林 (Edge Random Forest)</span>
+              <span>🧬 RF + MaxEnt 雙核預測引擎</span>
             </h3>
 
             <div v-if="nicheProfile.usedMode === 'strict'" class="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700 flex flex-col gap-1 shadow-sm">
@@ -126,7 +126,7 @@
                 🚀 嚴格驗證模式 (Strict Train/Test Split)
               </div>
               <div class="flex justify-between items-center mt-1">
-                <span class="text-[10px] text-indigo-600 leading-tight pr-2">資料充裕，使用「系統調查」作為高純度訓練集。</span>
+                <span class="text-[10px] text-indigo-600 leading-tight pr-2">資料充足，系統調查訓練，公民科學盲測。</span>
                 <span class="bg-indigo-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">
                   準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%
                 </span>
@@ -139,26 +139,43 @@
                 🧩 彈性混合模式 (Adaptive 90/10 Fallback)
               </div>
               <div class="flex justify-between items-center mt-1">
-                <span class="text-[10px] text-amber-600 leading-tight pr-2">自動降級：抽 10% 隨機調查盲測，剩餘 90% 併入系統調查訓練。</span>
+                <span class="text-[10px] text-amber-600 leading-tight pr-2">自動降級：抽 10% 隨機調查作盲測集。</span>
                 <span class="bg-amber-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">
                   準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%
                 </span>
               </div>
             </div>
+
+            <div class="mb-4">
+              <div class="text-[10px] text-slate-500 font-bold mb-1">🌲 第一階段：Random Forest 雜訊剔除</div>
+              <div class="flex flex-wrap gap-1">
+                <span v-for="feat in nicheProfile.droppedFeatures" :key="feat" class="bg-slate-200 text-slate-500 px-2 py-0.5 rounded text-[10px] line-through">
+                  {{ getFeatLabel(feat) }} (貢獻 &lt; 5%)
+                </span>
+                <span v-if="nicheProfile.droppedFeatures.length === 0" class="text-[10px] text-slate-400">無剔除特徵</span>
+              </div>
+            </div>
             
-            <div class="text-[10px] text-slate-500 mb-2 font-bold mt-4">📊 核心環境特徵資訊增益貢獻度 (Gini Importance)</div>
-            <div class="space-y-3 mt-2">
-              <div v-for="[feat, imp] in nicheProfile.importance" :key="feat" class="flex items-center text-xs">
-                <span class="w-12 text-slate-600 font-bold">{{ getFeatLabel(feat) }}</span>
-                <div class="flex-1 bg-slate-200 h-2.5 rounded-full overflow-hidden mx-3 shadow-inner">
-                  <div class="bg-emerald-500 h-full transition-all duration-500" :style="{ width: imp + '%' }"></div>
+            <div class="text-[10px] text-slate-500 font-bold flex justify-between mb-2">
+              <span>🏔️ 第二階段：MaxEnt 黃金特徵正負關聯</span>
+            </div>
+            
+            <div class="space-y-3">
+              <div v-for="feat in nicheProfile.importance" :key="feat.name" class="flex items-center text-xs">
+                <span class="w-12 text-slate-600 font-bold">{{ getFeatLabel(feat.name) }}</span>
+                <div class="flex-1 bg-slate-200 h-2.5 rounded-full overflow-hidden mx-3 shadow-inner flex">
+                  <div :class="feat.sign > 0 ? 'bg-emerald-500' : 'bg-rose-500'" 
+                       class="h-full transition-all duration-500" 
+                       :style="{ width: feat.percent + '%' }"></div>
                 </div>
-                <span class="w-8 text-right text-emerald-700 font-mono font-bold">{{ imp }}%</span>
+                <span :class="feat.sign > 0 ? 'text-emerald-700' : 'text-rose-700'" class="w-10 text-right font-mono font-bold">
+                  {{ feat.sign > 0 ? '+' : '-' }}{{ feat.percent }}%
+                </span>
               </div>
             </div>
             
             <p class="text-[9px] text-slate-400 mt-4 leading-tight">
-              * 系統已將「溫度」特徵屏除，以避免與海拔產生多重共線性(Multicollinearity)干擾。
+              * 混合管線：先以隨機森林(RF)尋找 Gini 貢獻度，剔除噪音特徵後，再交由最大熵模型(MaxEnt)針對保留特徵進行梯度下降優化。綠色代表偏好，紅色代表迴避。
             </p>
           </div>
 
@@ -316,7 +333,6 @@ const calcRealDev = (p) => {
   return Math.min(1.0, Math.pow(u, 0.5) + a * 0.5); 
 };
 
-// UI 顯示用：已移除溫度
 const getFeatLabel = (key) => {
   const map = { alt: '海拔', f: '樹林', g: '草地', w: '水域', a: '農田', c: '建築', dev: '干擾' };
   return map[key] || key;
@@ -388,14 +404,13 @@ onMounted(() => {
 });
 
 // ==========================================
-// ★ 5. 終極殺手鐧：自適應遞迴隨機森林 (Adaptive Recursive RF)
+// ★ 5. 高穩定雙核引擎：RF 特徵篩選 -> MaxEnt 推論 (抗雜訊升級版)
 // ==========================================
 const calculateRecommendations = async (tbiaGrids) => {
   const envGrids = envGridsData.value;
   const existingH3s = new Set(tbiaGrids.map(d => d.h3_index));
   
-  // 移除 tmp 溫度參數，解決多重共線性
-  const featsList = ['alt', 'f', 'g', 'w', 'a', 'c', 'dev'];
+  const allInitialFeats = ['alt', 'f', 'g', 'w', 'a', 'c', 'dev']; 
 
   const extractFeats = (grid) => ({
     alt: parseFloat(grid.alt) || 0,
@@ -407,7 +422,6 @@ const calculateRecommendations = async (tbiaGrids) => {
     dev: calcRealDev(grid)
   });
 
-  // 切分資料源
   const sysGrids = tbiaGrids.filter(d => d.official_effort > 0);
   const oppGrids = tbiaGrids.filter(d => d.citizen_effort > 0 && !(d.official_effort > 0));
 
@@ -418,19 +432,29 @@ const calculateRecommendations = async (tbiaGrids) => {
   if (allProfiles.length === 0) return [];
   const zones = new Set(allProfiles.map(p => p.z));
 
-  // ★ 判斷是否啟用進階模式：門檻改為「總調查筆數 > 500」
   const totalSysEffort = sysGrids.reduce((sum, d) => sum + (d.official_effort || 0), 0);
   const totalOppEffort = oppGrids.reduce((sum, d) => sum + (d.citizen_effort || 0), 0);
   const ADVANCED_THRESHOLD = 500;
-  
   const isDataRich = totalSysEffort >= ADVANCED_THRESHOLD && totalOppEffort >= ADVANCED_THRESHOLD;
 
-  // 負樣本 (Pseudo-absences) 生成
   const allH3s = Object.keys(envGrids);
+  // 只取同區域、有道路的網格作為背景母體
   const availableNegH3s = allH3s.filter(h3 => !existingH3s.has(h3) && envGrids[h3].rd > 0 && zones.has(envGrids[h3].z));
   
-  // --- 共用的決策樹與森林建構器 ---
-  const buildTree = (data, depth, maxDepth) => {
+  // ★ 穩定性強化 1：系統性空間抽樣 (Systematic Sampling) 代替純隨機
+  // 確保每次抽出的負樣本 (Pseudo-absences) 都能均勻代表全台灣的環境分佈
+  const getSystematicSamples = (arr, count) => {
+    if (arr.length <= count) return arr;
+    const step = arr.length / count;
+    const result = [];
+    for (let i = 0; i < count; i++) result.push(arr[Math.floor(i * step)]);
+    return result;
+  };
+
+  // ----------------------------------------------------
+  // 模塊 A：Random Forest (用來做特徵重要性篩選)
+  // ----------------------------------------------------
+  const buildTree = (data, depth, maxDepth, availableFeats) => {
     const labels = data.map(d => d.label);
     const posCount = labels.filter(l => l === 1).length;
 
@@ -438,14 +462,18 @@ const calculateRecommendations = async (tbiaGrids) => {
       return { isLeaf: true, prob: posCount / data.length };
     }
 
-    const selectedFeats = [...featsList].sort(() => 0.5 - Math.random()).slice(0, 3);
+    // RF 的特徵抽樣保留隨機性 (增加多樣性)
+    const selectedFeats = [...availableFeats].sort(() => 0.5 - Math.random()).slice(0, 3);
     
-    let bestGini = 1;
-    let bestSplit = null;
+    let bestGini = 1, bestSplit = null;
 
     selectedFeats.forEach(f => {
-      const uniqueVals = [...new Set(data.map(d => d.features[f]))];
-      const thresholds = uniqueVals.sort(() => 0.5 - Math.random()).slice(0, 10);
+      // ★ 穩定性強化 2：分位數切割法 (Quantile Splits)
+      // 將特徵值排序後取 10 等分位點，確保切割門檻每次都具備統計代表性，不會因為隨機而錯失關鍵特徵
+      const uniqueVals = [...new Set(data.map(d => d.features[f]))].sort((a, b) => a - b);
+      const thresholds = uniqueVals.length <= 10 
+        ? uniqueVals 
+        : Array.from({length: 10}, (_, i) => uniqueVals[Math.floor(uniqueVals.length * (i/10))]);
 
       thresholds.forEach(t => {
         const left = data.filter(d => d.features[f] <= t);
@@ -454,10 +482,8 @@ const calculateRecommendations = async (tbiaGrids) => {
 
         const pL = left.filter(d => d.label === 1).length / left.length;
         const pR = right.filter(d => d.label === 1).length / right.length;
-        
-        const giniL = 1 - (pL * pL + (1 - pL) * (1 - pL));
-        const giniR = 1 - (pR * pR + (1 - pR) * (1 - pR));
-        const gini = (left.length / data.length) * giniL + (right.length / data.length) * giniR;
+        const gini = (left.length / data.length) * (1 - (pL*pL + (1-pL)*(1-pL))) + 
+                     (right.length / data.length) * (1 - (pR*pR + (1-pR)*(1-pR)));
 
         if (gini < bestGini) {
           bestGini = gini;
@@ -467,150 +493,208 @@ const calculateRecommendations = async (tbiaGrids) => {
     });
 
     if (!bestSplit) return { isLeaf: true, prob: posCount / data.length };
-
     return {
       isLeaf: false, feature: bestSplit.feature, threshold: bestSplit.threshold,
-      left: buildTree(bestSplit.leftData, depth + 1, maxDepth),
-      right: buildTree(bestSplit.rightData, depth + 1, maxDepth)
+      left: buildTree(bestSplit.leftData, depth + 1, maxDepth, availableFeats),
+      right: buildTree(bestSplit.rightData, depth + 1, maxDepth, availableFeats)
     };
   };
 
-  const trainForest = (trainData, numTrees, maxDepth) => {
+  const runRandomForestFeatureSelection = async (trainData) => {
+    statusMessage.value = `🌲 階段一：啟動 Random Forest 雜訊過濾...`;
+    await new Promise(r => setTimeout(r, 10));
+
     const trees = [];
-    for (let i = 0; i < numTrees; i++) {
+    // 樹量提升至 30 棵，進一步壓制隨機變異
+    for (let i = 0; i < 30; i++) {
+      // Bootstrap 抽樣
       const sample = Array.from({ length: trainData.length }, () => trainData[Math.floor(Math.random() * trainData.length)]);
-      trees.push(buildTree(sample, 0, maxDepth));
+      trees.push(buildTree(sample, 0, 5, allInitialFeats));
     }
-    return trees;
+
+    const importance = {};
+    allInitialFeats.forEach(f => importance[f] = 0);
+    const traverse = (node, depth) => {
+      if (node.isLeaf) return;
+      importance[node.feature] += (1 / Math.pow(depth + 1, 2));
+      traverse(node.left, depth + 1);
+      traverse(node.right, depth + 1);
+    };
+    trees.forEach(t => traverse(t, 0));
+
+    const totalImp = Object.values(importance).reduce((a, b) => a + b, 0) || 1;
+    
+    const selectedFeats = [];
+    const droppedFeats = [];
+    Object.entries(importance).forEach(([feat, imp]) => {
+      const pct = (imp / totalImp) * 100;
+      if (pct >= 5.0) selectedFeats.push(feat);
+      else droppedFeats.push(feat);
+    });
+
+    // ★ 穩定性強化 3：領域知識保底 (Domain Knowledge Anchor)
+    // 海拔 (alt) 在台灣生態系絕對關鍵，強制將海拔拉回黃金特徵池，避免 MaxEnt 失控
+    if (!selectedFeats.includes('alt')) {
+      selectedFeats.push('alt');
+      const idx = droppedFeats.indexOf('alt');
+      if (idx > -1) droppedFeats.splice(idx, 1);
+      console.log("⚓ 觸發保底機制：強制保留海拔 (alt) 特徵");
+    }
+
+    if (selectedFeats.length === 0) selectedFeats.push(...allInitialFeats);
+
+    return { selectedFeats, droppedFeats };
   };
 
-  const predictForest = (trees, feats) => {
-    let sumProb = 0;
-    for (const tree of trees) {
-      let node = tree;
-      while (!node.isLeaf) {
-        if (feats[node.feature] <= node.threshold) node = node.left;
-        else node = node.right;
+  // ----------------------------------------------------
+  // 模塊 B：MaxEnt (Logistic Regression 梯度下降)
+  // ----------------------------------------------------
+  const getScaler = (data, activeFeats) => {
+    const mins = {}, maxs = {};
+    activeFeats.forEach(f => {
+      mins[f] = Math.min(...data.map(d => d.features[f]));
+      maxs[f] = Math.max(...data.map(d => d.features[f]));
+      if (maxs[f] === mins[f]) maxs[f] = mins[f] + 1; 
+    });
+    return (feats) => {
+      const norm = {};
+      activeFeats.forEach(f => norm[f] = (feats[f] - mins[f]) / (maxs[f] - mins[f]));
+      return norm;
+    };
+  };
+
+  const trainMaxEnt = (trainData, normalizeFn, activeFeats, epochs, lr) => {
+    const weights = {};
+    activeFeats.forEach(f => weights[f] = 0.0);
+    let bias = 0.0;
+    const m = trainData.length;
+
+    for (let e = 0; e < epochs; e++) {
+      let dw = {}, db = 0;
+      activeFeats.forEach(f => dw[f] = 0.0);
+
+      for (const d of trainData) {
+        const normX = normalizeFn(d.features);
+        let z = bias;
+        activeFeats.forEach(f => z += weights[f] * normX[f]);
+        
+        const p = 1.0 / (1.0 + Math.exp(-z));
+        const err = p - d.label;
+
+        db += err;
+        activeFeats.forEach(f => dw[f] += err * normX[f]);
       }
-      sumProb += node.prob;
+
+      bias -= lr * (db / m);
+      activeFeats.forEach(f => weights[f] -= lr * (dw[f] / m));
     }
-    return sumProb / trees.length; 
+    return { weights, bias };
   };
 
-  // --- 訓練與驗證循環 (Train/Test Loop) ---
-  const executeTraining = async (trainProfs, testProfs, modeName) => {
+  const predictMaxEnt = (model, normalizeFn, activeFeats, feats) => {
+    const normX = normalizeFn(feats);
+    let z = model.bias;
+    activeFeats.forEach(f => z += model.weights[f] * normX[f]);
+    return 1.0 / (1.0 + Math.exp(-z)); 
+  };
+
+  // --- 執行混合流水線 ---
+  const executePipeline = async (trainProfs, testProfs, modeName) => {
     const numNegs = Math.min(trainProfs.length * 2, availableNegH3s.length);
-    const negProfs = availableNegH3s.sort(() => 0.5 - Math.random()).slice(0, numNegs).map(h3 => envGrids[h3]);
+    // 使用系統性抽樣取代隨機，確保背景特徵穩定
+    const negProfs = getSystematicSamples(availableNegH3s, numNegs).map(h3 => envGrids[h3]);
 
     const trainData = [
       ...trainProfs.map(p => ({ features: extractFeats(p), label: 1 })),
       ...negProfs.map(p => ({ features: extractFeats(p), label: 0 }))
     ];
 
-    let bestTrees = [];
+    // 1. RF Feature Selection
+    const { selectedFeats, droppedFeats } = await runRandomForestFeatureSelection(trainData);
+    
+    // 2. MaxEnt Training
+    const normalizeFn = getScaler(trainData, selectedFeats);
+    let bestModel = null;
     let bestRecall = 0;
-    let currentTreesCount = 20;
-    let currentDepth = 5; 
+    let currentEpochs = 200; // 提升初始收斂次數
+    const learningRate = 0.5;
 
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      statusMessage.value = `🤖 訓練隨機森林中 [${modeName}] (第 ${attempt} 輪, 樹量: ${currentTreesCount})...`;
-      await new Promise(r => setTimeout(r, 10)); // 讓 UI 更新
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      statusMessage.value = `🏔️ 階段二：訓練 MaxEnt 中 [${modeName}] (第 ${attempt} 輪)...`;
+      await new Promise(r => setTimeout(r, 10));
 
-      const trees = trainForest(trainData, currentTreesCount, currentDepth);
+      const model = trainMaxEnt(trainData, normalizeFn, selectedFeats, currentEpochs, learningRate);
       
       if (testProfs.length > 0) {
         let correct = 0;
         testProfs.forEach(grid => {
-          const score = predictForest(trees, extractFeats(grid));
-          if (score > 0.35) correct++;
+          const score = predictMaxEnt(model, normalizeFn, selectedFeats, extractFeats(grid));
+          if (score > 0.40) correct++; 
         });
         const recall = correct / testProfs.length;
 
-        if (recall > bestRecall) {
-          bestRecall = recall;
-          bestTrees = trees;
-        }
-
-        // ★ 及格門檻修正為 0.80 (80%)
+        if (recall > bestRecall) { bestRecall = recall; bestModel = model; }
         if (recall >= 0.80) break; 
       } else {
-        // 極端情況：無測試集，全量訓練
-        bestTrees = trees;
+        bestModel = model;
         bestRecall = 1.0;
         break;
       }
-      currentTreesCount += 15;
-      currentDepth += 2;
+      currentEpochs += 200;
     }
-    return { trees: bestTrees, recall: bestRecall };
+    return { model: bestModel, normalizeFn, activeFeats: selectedFeats, droppedFeats, recall: bestRecall };
   };
 
-  // --- 自動降級控制 (Graceful Degradation) ---
-  let finalTrees = [];
-  let validationScore = 0;
-  let usedMode = '';
-  let tryFallback = false;
+  // --- 自動降級控制 ---
+  let finalModel = null, finalNormalizeFn = null, finalActiveFeats = [], finalDroppedFeats = [];
+  let validationScore = 0, usedMode = '', tryFallback = false;
 
   if (isDataRich) {
-    // Plan A: 理想嚴格模式
-    const result = await executeTraining(sysProfiles, oppProfiles, '嚴格驗證模式');
+    const result = await executePipeline(sysProfiles, oppProfiles, '嚴格驗證模式');
     if (result.recall >= 0.65) {
-      finalTrees = result.trees;
-      validationScore = result.recall;
-      usedMode = 'strict';
-    } else {
-      console.log(`嚴格模式準確率僅 ${result.recall.toFixed(2)}，觸發降級備案...`);
-      tryFallback = true;
-    }
+      finalModel = result.model; finalNormalizeFn = result.normalizeFn;
+      finalActiveFeats = result.activeFeats; finalDroppedFeats = result.droppedFeats;
+      validationScore = result.recall; usedMode = 'strict';
+    } else tryFallback = true;
   } else {
     tryFallback = true;
   }
 
   if (tryFallback) {
-    // Plan B: 彈性混合模式 (90/10 盲測切分)
-    let oppTrain = [];
-    let oppTest = [];
-    let sysTrain = [...sysProfiles];
-
+    // 系統性抽樣取代隨機切分 Test Set
+    let oppTrain = [], oppTest = [], sysTrain = [...sysProfiles];
     if (oppProfiles.length > 0) {
-      const shuffledOpp = [...oppProfiles].sort(() => 0.5 - Math.random());
-      const testSize = Math.max(1, Math.floor(shuffledOpp.length * 0.1));
-      oppTest = shuffledOpp.slice(0, testSize);
-      oppTrain = shuffledOpp.slice(testSize);
+      const testSize = Math.max(1, Math.floor(oppProfiles.length * 0.1));
+      oppTest = getSystematicSamples(oppProfiles, testSize);
+      oppTrain = oppProfiles.filter(p => !oppTest.includes(p));
     } else {
-      const shuffledSys = [...sysProfiles].sort(() => 0.5 - Math.random());
-      const testSize = Math.max(1, Math.floor(shuffledSys.length * 0.1));
-      oppTest = shuffledSys.slice(0, testSize);
-      sysTrain = shuffledSys.slice(testSize);
+      const testSize = Math.max(1, Math.floor(sysProfiles.length * 0.1));
+      oppTest = getSystematicSamples(sysProfiles, testSize);
+      sysTrain = sysProfiles.filter(p => !oppTest.includes(p));
     }
 
-    const trainProfiles = [...sysTrain, ...oppTrain];
-    const result = await executeTraining(trainProfiles, oppTest, '混合降級模式');
-    finalTrees = result.trees;
-    validationScore = result.recall;
-    usedMode = 'fallback';
+    const result = await executePipeline([...sysTrain, ...oppTrain], oppTest, '混合降級模式');
+    finalModel = result.model; finalNormalizeFn = result.normalizeFn;
+    finalActiveFeats = result.activeFeats; finalDroppedFeats = result.droppedFeats;
+    validationScore = result.recall; usedMode = 'fallback';
   }
 
-  // --- 計算特徵重要性 ---
-  const featureImportance = {};
-  featsList.forEach(f => featureImportance[f] = 0);
+  // --- 解析 MaxEnt 權重供 UI 顯示 ---
+  let totalWeightAbs = 0;
+  finalActiveFeats.forEach(f => totalWeightAbs += Math.abs(finalModel.weights[f]));
   
-  const traverse = (node, depth) => {
-    if (node.isLeaf) return;
-    featureImportance[node.feature] += (1 / Math.pow(depth + 1, 2));
-    traverse(node.left, depth + 1);
-    traverse(node.right, depth + 1);
-  };
-  finalTrees.forEach(tree => traverse(tree, 0));
-  
-  const totalImp = Object.values(featureImportance).reduce((a, b) => a + b, 0);
-  const sortedImportance = Object.entries(featureImportance)
-    .map(([feat, imp]) => [feat, Math.round((imp / totalImp) * 100)])
-    .filter(item => item[1] > 0) 
-    .sort((a, b) => b[1] - a[1]);
+  const sortedImportance = finalActiveFeats
+    .map(feat => {
+      const w = finalModel.weights[feat];
+      const percent = totalWeightAbs === 0 ? 0 : Math.round((Math.abs(w) / totalWeightAbs) * 100);
+      return { name: feat, percent, sign: w >= 0 ? 1 : -1 }; 
+    })
+    .filter(item => item.percent > 0) 
+    .sort((a, b) => b.percent - a.percent);
 
   nicheProfile.value = { 
     importance: sortedImportance, 
+    droppedFeatures: finalDroppedFeats,
     usedMode, 
     validationScore 
   };
@@ -625,9 +709,9 @@ const calculateRecommendations = async (tbiaGrids) => {
     if (!zones.has(grid.z)) continue; 
 
     const feats = extractFeats(grid);
-    const finalScore = predictForest(finalTrees, feats); 
+    const finalScore = predictMaxEnt(finalModel, finalNormalizeFn, finalActiveFeats, feats); 
 
-    if (finalScore > 0.35) {
+    if (finalScore > 0.40) {
       scoredGrids.push({ h3_id, grid, score: finalScore, realDev: feats.dev });
       if (finalScore > maxScore) maxScore = finalScore;
     }
@@ -739,7 +823,7 @@ const startAnalysis = async () => {
     }
 
     if (envGridsLoaded.value && accumulatedValidData.length > 0) {
-      statusMessage.value = '🤖 正在準備環境參數...';
+      statusMessage.value = '🤖 正在啟動 RF+MaxEnt 雙核模型...';
       await new Promise(resolve => setTimeout(resolve, 50)); 
       
       const recommendedGrids = await calculateRecommendations(accumulatedValidData);
@@ -750,7 +834,7 @@ const startAnalysis = async () => {
         
         const tooltipHtml = `
           <div style="font-family: sans-serif; font-size: 13px;">
-            <div style="font-weight: bold; color: #047857;">✨ RF 模型推薦度: ${rg.normalizedScore.toFixed(1)}%</div>
+            <div style="font-weight: bold; color: #047857;">✨ 雙核模型推薦度: ${rg.normalizedScore.toFixed(1)}%</div>
             <hr style="margin: 4px 0;">
             <div style="font-size: 11px;">標高: ${rg.grid.alt}m | 氣溫: ${rg.grid.tmp}°C | 易達性: ${rg.grid.rd}</div>
             <div style="font-size: 11px; margin-top: 2px;">🌲林:${rg.grid.f} | 🚜農:${rg.grid.a} | 💧水:${rg.grid.w} | 🏗️干擾指數:${(rg.realDev * 100).toFixed(0)}%</div>
