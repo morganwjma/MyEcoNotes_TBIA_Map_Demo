@@ -307,7 +307,7 @@ const taxonomyLevels = [
 ];
 
 const form = ref({
-  inc_class: '', inc_order: 'Cetacea', inc_family: '', inc_genus: '', inc_species: '',
+  inc_class: '', inc_order: 'Anura', inc_family: '', inc_genus: '', inc_species: '',
   exc_class: '', exc_order: '', exc_family: '', exc_genus: '', exc_species: ''
 });
 
