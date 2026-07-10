@@ -11,7 +11,7 @@
       <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-white cursor-pointer md:cursor-auto" @click="toggleMobilePanel">
         <div>
           <h1 class="text-sm md:text-lg font-bold text-emerald-600">MyEcoNotes 雙核預測地圖</h1>
-          <p class="text-[10px] text-slate-500 mt-1 hidden md:block">RF 特徵篩選 + MaxEnt 機率推論</p>
+          <p class="text-[10px] text-slate-500 mt-1 hidden md:block">RF 降噪 + MaxEnt 推論 (海陸通用版)</p>
         </div>
         <div class="md:hidden text-slate-500">
           <svg v-if="!isMobilePanelOpen" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -65,42 +65,79 @@
     <div class="flex-1 relative bg-slate-100 flex flex-col h-full z-0 w-full">
       <div ref="mapContainer" class="absolute inset-0 w-full h-full"></div>
       
-      <div class="absolute bottom-4 right-4 z-[9999] bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-slate-200 overflow-visible transition-all duration-300 pointer-events-auto"
-           :class="{'w-56 h-48': isLegendExpanded, 'w-12 h-12': !isLegendExpanded}">
+      <div class="absolute bottom-4 right-4 z-[9999] flex flex-col items-end gap-3 pointer-events-auto">
         
-        <button v-if="hasGeneratedReport" @click.stop="showReportModal = true" 
-                class="absolute top-[-8px] right-[-8px] w-6 h-6 bg-amber-500 hover:bg-amber-400 text-white rounded-full font-bold text-sm shadow-md flex items-center justify-center z-[10000] border-2 border-white transition-transform hover:scale-110">
-          !
+        <button v-if="hasGeneratedReport" @click.stop="toggleMapMode"
+                class="w-12 h-12 bg-white/90 hover:bg-white backdrop-blur-md rounded-full shadow-lg border border-slate-200 flex items-center justify-center transition-all duration-300"
+                :class="{'ring-2 ring-emerald-500': isPotentialHabitatMode}">
+          <svg v-if="!isPotentialHabitatMode" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM5.94 11.256c.725-.6 1.764-1.282 2.766-1.554.498-.135 1.05-.138 1.487-.037.45.104.832.33 1.258.558.375.201.765.412 1.15.524.364.106.74.116 1.114.073V13.5c0 .354-.23.666-.566.772l-1.042.33a.75.75 0 01-.635-.091c-.482-.338-1.235-1.127-1.448-1.405-.285-.38-.727-.55-1.182-.55-.429 0-.853.155-1.184.453l-.865.776a.75.75 0 01-.734.126l-1.008-.403A.75.75 0 016 13.5v-2.244z" clip-rule="evenodd" />
+          </svg>
         </button>
 
-        <div v-if="!isLegendExpanded" @click.stop="isLegendExpanded = true" 
-             class="w-full h-full flex items-center justify-center cursor-pointer hover:bg-slate-100 rounded-xl overflow-hidden">
-           <div class="w-8 h-8 rotate-[-45deg] flex flex-col shadow-sm">
-             <div class="flex w-full h-1/4" v-for="y in [3,2,1,0]" :key="'thumb_y'+y">
-               <div class="w-1/4 h-full" v-for="x in [0,1,2,3]" :key="'thumb_x'+x" 
-                 :style="{ backgroundColor: getBivariateColorCode(x, y) }"></div>
-             </div>
-           </div>
-        </div>
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-slate-200 overflow-visible transition-all duration-300"
+             :class="{'w-56 h-48': isLegendExpanded, 'w-12 h-12': !isLegendExpanded}">
+          
+          <button v-if="hasGeneratedReport" @click.stop="showReportModal = true" 
+                  class="absolute top-[-8px] right-[-8px] w-6 h-6 bg-amber-500 hover:bg-amber-400 text-white rounded-full font-bold text-sm shadow-md flex items-center justify-center z-[10000] border-2 border-white transition-transform hover:scale-110">
+            !
+          </button>
 
-        <div v-else class="p-3 w-full h-full flex flex-col">
-           <div class="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
-             <span class="text-[10px] font-bold">4×4 矩陣 <span class="text-emerald-600 ml-1">(+ 雙核潛力區)</span></span>
-             <button @click.stop="isLegendExpanded = false" class="text-slate-400 hover:text-slate-600 font-bold">×</button>
-           </div>
-           <div class="relative w-28 h-28 mx-auto mt-2">
-             <div class="absolute w-20 h-20 rotate-[-45deg] flex flex-col shadow-lg left-4 top-4">
-               <div class="flex w-full h-1/4" v-for="y in [3,2,1,0]" :key="'y'+y">
-                 <div class="w-1/4 h-full border-[0.5px] border-white/20" v-for="x in [0,1,2,3]" :key="'x'+x" 
+          <div v-if="!isLegendExpanded" @click.stop="isLegendExpanded = true" 
+               class="w-full h-full flex items-center justify-center cursor-pointer hover:bg-slate-100 rounded-xl overflow-hidden">
+             
+             <div v-if="!isPotentialHabitatMode" class="w-8 h-8 rotate-[-45deg] flex flex-col shadow-sm">
+               <div class="flex w-full h-1/4" v-for="y in [3,2,1,0]" :key="'thumb_y'+y">
+                 <div class="w-1/4 h-full" v-for="x in [0,1,2,3]" :key="'thumb_x'+x" 
                    :style="{ backgroundColor: getBivariateColorCode(x, y) }"></div>
                </div>
              </div>
-           </div>
-           <div class="text-[9px] text-center mt-2 flex justify-between px-2">
-             <span class="text-orange-700">非公民科學</span>
-             <span class="text-blue-700">公民科學</span>
-           </div>
+
+             <div v-else class="w-8 h-8 rounded-sm bg-gradient-to-t from-[#ffeda0] via-[#ef4444] to-[#7f1d1d] shadow-sm flex items-center justify-center">
+                <span class="text-[10px] text-white font-bold drop-shadow-md">SDM</span>
+             </div>
+          </div>
+
+          <div v-else class="p-3 w-full h-full flex flex-col relative">
+             <button @click.stop="isLegendExpanded = false" class="absolute top-2 right-2 text-slate-400 hover:text-slate-600 font-bold w-6 h-6 flex items-center justify-center bg-white/50 rounded-full z-10">×</button>
+             
+             <div v-if="!isPotentialHabitatMode" class="flex-1 flex flex-col">
+               <div class="border-b border-slate-200 pb-1 mb-1">
+                 <span class="text-[10px] font-bold text-slate-700">調查覆蓋 <span class="text-emerald-600 ml-1">+ 推薦區</span></span>
+               </div>
+               <div class="relative w-28 h-28 mx-auto mt-1">
+                 <div class="absolute w-20 h-20 rotate-[-45deg] flex flex-col shadow-lg left-4 top-4">
+                   <div class="flex w-full h-1/4" v-for="y in [3,2,1,0]" :key="'y'+y">
+                     <div class="w-1/4 h-full border-[0.5px] border-white/20" v-for="x in [0,1,2,3]" :key="'x'+x" 
+                       :style="{ backgroundColor: getBivariateColorCode(x, y) }"></div>
+                   </div>
+                 </div>
+               </div>
+               <div class="text-[9px] text-center mt-2 flex justify-between px-2 font-medium">
+                 <span class="text-orange-700">非公民科學</span>
+                 <span class="text-blue-700">公民科學</span>
+               </div>
+             </div>
+
+             <div v-else class="flex-1 flex flex-col">
+               <div class="border-b border-slate-200 pb-1 mb-2">
+                 <span class="text-[10px] font-bold text-slate-700">MaxEnt 潛在棲地預測</span>
+               </div>
+               <div class="flex-1 flex flex-row items-center px-4 py-2">
+                 <div class="w-4 h-full rounded-full bg-gradient-to-t from-[#fef08a] via-[#ef4444] to-[#7f1d1d] shadow-inner mr-3"></div>
+                 <div class="flex flex-col justify-between h-full text-[10px] text-slate-600 font-bold py-1">
+                   <span>極高 (90%+)</span>
+                   <span>中等 (60%)</span>
+                   <span>低 (40%)</span>
+                 </div>
+               </div>
+             </div>
+          </div>
         </div>
+
       </div>
     </div>
 
@@ -136,10 +173,10 @@
             <div v-else class="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex flex-col gap-1 shadow-sm">
               <div class="font-bold flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                🧩 彈性混合模式 (Adaptive 90/10 Fallback)
+                🧩 彈性混合模式 (Adaptive Fallback)
               </div>
               <div class="flex justify-between items-center mt-1">
-                <span class="text-[10px] text-amber-600 leading-tight pr-2">自動降級：抽 10% 隨機調查作盲測集。</span>
+                <span class="text-[10px] text-amber-600 leading-tight pr-2">動態降級：合併訓練集並抽樣驗證以確保收斂。</span>
                 <span class="bg-amber-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">
                   準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%
                 </span>
@@ -147,7 +184,7 @@
             </div>
 
             <div class="mb-4">
-              <div class="text-[10px] text-slate-500 font-bold mb-1">🌲 第一階段：Random Forest 雜訊剔除</div>
+              <div class="text-[10px] text-slate-500 font-bold mb-1">🌲 階段一：Random Forest 雜訊剔除</div>
               <div class="flex flex-wrap gap-1">
                 <span v-for="feat in nicheProfile.droppedFeatures" :key="feat" class="bg-slate-200 text-slate-500 px-2 py-0.5 rounded text-[10px] line-through">
                   {{ getFeatLabel(feat) }} (貢獻 &lt; 5%)
@@ -157,12 +194,12 @@
             </div>
             
             <div class="text-[10px] text-slate-500 font-bold flex justify-between mb-2">
-              <span>🏔️ 第二階段：MaxEnt 黃金特徵正負關聯</span>
+              <span>🏔️ 階段二：MaxEnt 環境特徵正負關聯</span>
             </div>
             
             <div class="space-y-3">
               <div v-for="feat in nicheProfile.importance" :key="feat.name" class="flex items-center text-xs">
-                <span class="w-12 text-slate-600 font-bold">{{ getFeatLabel(feat.name) }}</span>
+                <span class="w-16 text-slate-600 font-bold">{{ getFeatLabel(feat.name) }}</span>
                 <div class="flex-1 bg-slate-200 h-2.5 rounded-full overflow-hidden mx-3 shadow-inner flex">
                   <div :class="feat.sign > 0 ? 'bg-emerald-500' : 'bg-rose-500'" 
                        class="h-full transition-all duration-500" 
@@ -173,10 +210,6 @@
                 </span>
               </div>
             </div>
-            
-            <p class="text-[9px] text-slate-400 mt-4 leading-tight">
-              * 混合管線：先以隨機森林(RF)尋找 Gini 貢獻度，剔除噪音特徵後，再交由最大熵模型(MaxEnt)針對保留特徵進行梯度下降優化。綠色代表偏好，紅色代表迴避。
-            </p>
           </div>
 
           <div v-if="reportData" class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5">
@@ -227,7 +260,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, shallowRef } from 'vue';
+import { ref, onMounted, onUnmounted, computed, shallowRef, watch } from 'vue';
 import { createClient } from '@supabase/supabase-js';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -243,6 +276,13 @@ const isGeneratingAI = ref(false);
 const reportData = ref(null);
 const aiSummary = ref('');
 const nicheProfile = ref(null); 
+
+// ★ 新增：控制地圖渲染模式 (false=調查覆蓋/推薦, true=純潛在棲地)
+const isPotentialHabitatMode = ref(false);
+
+// ★ 儲存圖層資料，方便切換模式時重新渲染
+const cachedRawData = ref([]); 
+const cachedScoredGrids = ref([]); 
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const SUPABASE_URL = "https://psprlovfzsabgubugngb.supabase.co";
@@ -267,7 +307,7 @@ const taxonomyLevels = [
 ];
 
 const form = ref({
-  inc_class: 'Aves', inc_order: '', inc_family: '', inc_genus: '', inc_species: '',
+  inc_class: '', inc_order: 'Cetacea', inc_family: '', inc_genus: '', inc_species: '',
   exc_class: '', exc_order: '', exc_family: '', exc_genus: '', exc_species: ''
 });
 
@@ -276,8 +316,8 @@ const progress = ref(0);
 const statusMessage = ref('');
 const mapContainer = ref(null);
 let map = null;
-let layerGroup = null; 
-let recommendationLayerGroup = null; 
+let layerGroup = null; // 裝原資料
+let recommendationLayerGroup = null; // 裝推薦/預測資料
 
 const envGridsLoaded = ref(false);
 const envGridsData = shallowRef({});
@@ -298,6 +338,17 @@ const getEffortBin = (val) => {
   if (val <= 5) return 1;    
   if (val <= 30) return 2;   
   return 3;                  
+};
+
+// ★ 新增：將 0~100 的機率轉換為熱區圖漸層顏色
+const getHeatmapColor = (percentage) => {
+  if (percentage < 40) return 'transparent'; // 門檻以下透明
+  const p = (percentage - 40) / 60; // 將 40-100 映射到 0-1
+  // 從淺黃 (#fef08a) 過渡到 深紅 (#7f1d1d)
+  const r = Math.round(254 - p * (254 - 127));
+  const g = Math.round(240 - p * (240 - 29));
+  const b = Math.round(138 - p * (138 - 29));
+  return `rgb(${r}, ${g}, ${b})`;
 };
 
 const parseInputOrArray = (str) => {
@@ -333,8 +384,14 @@ const calcRealDev = (p) => {
   return Math.min(1.0, Math.pow(u, 0.5) + a * 0.5); 
 };
 
+const isSeaZone = (z) => {
+  if (!z) return false;
+  const str = String(z);
+  return str.includes('_Sea') || str.includes('Ocean');
+};
+
 const getFeatLabel = (key) => {
-  const map = { alt: '海拔', f: '樹林', g: '草地', w: '水域', a: '農田', c: '建築', dev: '干擾' };
+  const map = { alt: '海拔', f: '樹林', g: '草地', w: '水域', a: '農田', c: '建築', dev: '人為干擾', sea: '海洋環境' };
   return map[key] || key;
 };
 
@@ -404,13 +461,12 @@ onMounted(() => {
 });
 
 // ==========================================
-// ★ 5. 高穩定雙核引擎：RF 特徵篩選 -> MaxEnt 推論 (抗雜訊升級版)
+// 5. 雙核引擎：RF 特徵篩選 -> MaxEnt (計算全網格)
 // ==========================================
 const calculateRecommendations = async (tbiaGrids) => {
   const envGrids = envGridsData.value;
   const existingH3s = new Set(tbiaGrids.map(d => d.h3_index));
-  
-  const allInitialFeats = ['alt', 'f', 'g', 'w', 'a', 'c', 'dev']; 
+  const allInitialFeats = ['alt', 'f', 'g', 'w', 'a', 'c', 'dev', 'sea']; 
 
   const extractFeats = (grid) => ({
     alt: parseFloat(grid.alt) || 0,
@@ -419,7 +475,8 @@ const calculateRecommendations = async (tbiaGrids) => {
     w: parseFloat(grid.w) || 0,
     a: parseFloat(grid.a) || 0,
     c: parseFloat(grid.c) || 0,
-    dev: calcRealDev(grid)
+    dev: calcRealDev(grid),
+    sea: isSeaZone(grid.z) ? 1.0 : 0.0
   });
 
   const sysGrids = tbiaGrids.filter(d => d.official_effort > 0);
@@ -430,6 +487,8 @@ const calculateRecommendations = async (tbiaGrids) => {
   const allProfiles = [...sysProfiles, ...oppProfiles];
 
   if (allProfiles.length === 0) return [];
+
+  // ★ 萃取所有的分區 (Zones)，用於後續的地理隔離
   const zones = new Set(allProfiles.map(p => p.z));
 
   const totalSysEffort = sysGrids.reduce((sum, d) => sum + (d.official_effort || 0), 0);
@@ -438,11 +497,14 @@ const calculateRecommendations = async (tbiaGrids) => {
   const isDataRich = totalSysEffort >= ADVANCED_THRESHOLD && totalOppEffort >= ADVANCED_THRESHOLD;
 
   const allH3s = Object.keys(envGrids);
-  // 只取同區域、有道路的網格作為背景母體
-  const availableNegH3s = allH3s.filter(h3 => !existingH3s.has(h3) && envGrids[h3].rd > 0 && zones.has(envGrids[h3].z));
   
-  // ★ 穩定性強化 1：系統性空間抽樣 (Systematic Sampling) 代替純隨機
-  // 確保每次抽出的負樣本 (Pseudo-absences) 都能均勻代表全台灣的環境分佈
+  // 背景抽樣 (Negative Samples)：排除已調查點，且必須有路或是在海裡
+  const availableNegH3s = allH3s.filter(h3 => 
+    !existingH3s.has(h3) && 
+    (envGrids[h3].rd > 0 || isSeaZone(envGrids[h3].z)) && 
+    zones.has(envGrids[h3].z) // ★ 確保背景抽樣也在同一個地理分區
+  );
+
   const getSystematicSamples = (arr, count) => {
     if (arr.length <= count) return arr;
     const step = arr.length / count;
@@ -450,11 +512,10 @@ const calculateRecommendations = async (tbiaGrids) => {
     for (let i = 0; i < count; i++) result.push(arr[Math.floor(i * step)]);
     return result;
   };
-
-  // ----------------------------------------------------
-  // 模塊 A：Random Forest (用來做特徵重要性篩選)
-  // ----------------------------------------------------
+  
+  // -- A: Random Forest --
   const buildTree = (data, depth, maxDepth, availableFeats) => {
+    if (data.length === 0) return { isLeaf: true, prob: 0 };
     const labels = data.map(d => d.label);
     const posCount = labels.filter(l => l === 1).length;
 
@@ -462,14 +523,11 @@ const calculateRecommendations = async (tbiaGrids) => {
       return { isLeaf: true, prob: posCount / data.length };
     }
 
-    // RF 的特徵抽樣保留隨機性 (增加多樣性)
     const selectedFeats = [...availableFeats].sort(() => 0.5 - Math.random()).slice(0, 3);
     
     let bestGini = 1, bestSplit = null;
 
     selectedFeats.forEach(f => {
-      // ★ 穩定性強化 2：分位數切割法 (Quantile Splits)
-      // 將特徵值排序後取 10 等分位點，確保切割門檻每次都具備統計代表性，不會因為隨機而錯失關鍵特徵
       const uniqueVals = [...new Set(data.map(d => d.features[f]))].sort((a, b) => a - b);
       const thresholds = uniqueVals.length <= 10 
         ? uniqueVals 
@@ -505,9 +563,7 @@ const calculateRecommendations = async (tbiaGrids) => {
     await new Promise(r => setTimeout(r, 10));
 
     const trees = [];
-    // 樹量提升至 30 棵，進一步壓制隨機變異
     for (let i = 0; i < 30; i++) {
-      // Bootstrap 抽樣
       const sample = Array.from({ length: trainData.length }, () => trainData[Math.floor(Math.random() * trainData.length)]);
       trees.push(buildTree(sample, 0, 5, allInitialFeats));
     }
@@ -523,7 +579,6 @@ const calculateRecommendations = async (tbiaGrids) => {
     trees.forEach(t => traverse(t, 0));
 
     const totalImp = Object.values(importance).reduce((a, b) => a + b, 0) || 1;
-    
     const selectedFeats = [];
     const droppedFeats = [];
     Object.entries(importance).forEach(([feat, imp]) => {
@@ -532,23 +587,22 @@ const calculateRecommendations = async (tbiaGrids) => {
       else droppedFeats.push(feat);
     });
 
-    // ★ 穩定性強化 3：領域知識保底 (Domain Knowledge Anchor)
-    // 海拔 (alt) 在台灣生態系絕對關鍵，強制將海拔拉回黃金特徵池，避免 MaxEnt 失控
     if (!selectedFeats.includes('alt')) {
       selectedFeats.push('alt');
       const idx = droppedFeats.indexOf('alt');
       if (idx > -1) droppedFeats.splice(idx, 1);
-      console.log("⚓ 觸發保底機制：強制保留海拔 (alt) 特徵");
     }
-
+    if (allInitialFeats.includes('sea') && !selectedFeats.includes('sea')) {
+       selectedFeats.push('sea');
+       const idx = droppedFeats.indexOf('sea');
+       if (idx > -1) droppedFeats.splice(idx, 1);
+    }
     if (selectedFeats.length === 0) selectedFeats.push(...allInitialFeats);
 
     return { selectedFeats, droppedFeats };
   };
 
-  // ----------------------------------------------------
-  // 模塊 B：MaxEnt (Logistic Regression 梯度下降)
-  // ----------------------------------------------------
+  // -- B: MaxEnt --
   const getScaler = (data, activeFeats) => {
     const mins = {}, maxs = {};
     activeFeats.forEach(f => {
@@ -568,6 +622,7 @@ const calculateRecommendations = async (tbiaGrids) => {
     activeFeats.forEach(f => weights[f] = 0.0);
     let bias = 0.0;
     const m = trainData.length;
+    if (m === 0) return { weights, bias };
 
     for (let e = 0; e < epochs; e++) {
       let dw = {}, db = 0;
@@ -592,6 +647,7 @@ const calculateRecommendations = async (tbiaGrids) => {
   };
 
   const predictMaxEnt = (model, normalizeFn, activeFeats, feats) => {
+    if (!model) return 0;
     const normX = normalizeFn(feats);
     let z = model.bias;
     activeFeats.forEach(f => z += model.weights[f] * normX[f]);
@@ -601,7 +657,6 @@ const calculateRecommendations = async (tbiaGrids) => {
   // --- 執行混合流水線 ---
   const executePipeline = async (trainProfs, testProfs, modeName) => {
     const numNegs = Math.min(trainProfs.length * 2, availableNegH3s.length);
-    // 使用系統性抽樣取代隨機，確保背景特徵穩定
     const negProfs = getSystematicSamples(availableNegH3s, numNegs).map(h3 => envGrids[h3]);
 
     const trainData = [
@@ -609,14 +664,11 @@ const calculateRecommendations = async (tbiaGrids) => {
       ...negProfs.map(p => ({ features: extractFeats(p), label: 0 }))
     ];
 
-    // 1. RF Feature Selection
     const { selectedFeats, droppedFeats } = await runRandomForestFeatureSelection(trainData);
-    
-    // 2. MaxEnt Training
     const normalizeFn = getScaler(trainData, selectedFeats);
     let bestModel = null;
     let bestRecall = 0;
-    let currentEpochs = 200; // 提升初始收斂次數
+    let currentEpochs = 200; 
     const learningRate = 0.5;
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -624,6 +676,7 @@ const calculateRecommendations = async (tbiaGrids) => {
       await new Promise(r => setTimeout(r, 10));
 
       const model = trainMaxEnt(trainData, normalizeFn, selectedFeats, currentEpochs, learningRate);
+      if (attempt === 1) bestModel = model;
       
       if (testProfs.length > 0) {
         let correct = 0;
@@ -661,19 +714,21 @@ const calculateRecommendations = async (tbiaGrids) => {
   }
 
   if (tryFallback) {
-    // 系統性抽樣取代隨機切分 Test Set
     let oppTrain = [], oppTest = [], sysTrain = [...sysProfiles];
-    if (oppProfiles.length > 0) {
+    if (oppProfiles.length >= 5) {
       const testSize = Math.max(1, Math.floor(oppProfiles.length * 0.1));
       oppTest = getSystematicSamples(oppProfiles, testSize);
       oppTrain = oppProfiles.filter(p => !oppTest.includes(p));
-    } else {
+    } else if (sysProfiles.length >= 5) {
       const testSize = Math.max(1, Math.floor(sysProfiles.length * 0.1));
       oppTest = getSystematicSamples(sysProfiles, testSize);
       sysTrain = sysProfiles.filter(p => !oppTest.includes(p));
+    } else {
+      oppTrain = [...oppProfiles]; sysTrain = [...sysProfiles]; oppTest = [];
     }
 
-    const result = await executePipeline([...sysTrain, ...oppTrain], oppTest, '混合降級模式');
+    const trainProfiles = [...sysTrain, ...oppTrain];
+    const result = await executePipeline(trainProfiles, oppTest, '混合降級模式');
     finalModel = result.model; finalNormalizeFn = result.normalizeFn;
     finalActiveFeats = result.activeFeats; finalDroppedFeats = result.droppedFeats;
     validationScore = result.recall; usedMode = 'fallback';
@@ -681,51 +736,185 @@ const calculateRecommendations = async (tbiaGrids) => {
 
   // --- 解析 MaxEnt 權重供 UI 顯示 ---
   let totalWeightAbs = 0;
-  finalActiveFeats.forEach(f => totalWeightAbs += Math.abs(finalModel.weights[f]));
+  if (finalModel) {
+    finalActiveFeats.forEach(f => totalWeightAbs += Math.abs(finalModel.weights[f]));
+  }
   
   const sortedImportance = finalActiveFeats
     .map(feat => {
-      const w = finalModel.weights[feat];
+      const w = finalModel ? finalModel.weights[feat] : 0;
       const percent = totalWeightAbs === 0 ? 0 : Math.round((Math.abs(w) / totalWeightAbs) * 100);
       return { name: feat, percent, sign: w >= 0 ? 1 : -1 }; 
     })
     .filter(item => item.percent > 0) 
     .sort((a, b) => b.percent - a.percent);
 
-  nicheProfile.value = { 
-    importance: sortedImportance, 
-    droppedFeatures: finalDroppedFeats,
-    usedMode, 
-    validationScore 
-  };
+  nicheProfile.value = { importance: sortedImportance, droppedFeatures: finalDroppedFeats, usedMode, validationScore };
 
-  // --- 全台推論 ---
+  // ★ 計算所有網格的分數 (包含已調查網格，供純潛在棲地全覽使用)
   let scoredGrids = [];
   let maxScore = 0;
 
   for (const [h3_id, grid] of Object.entries(envGrids)) {
-    if (existingH3s.has(h3_id)) continue; 
-    if (grid.rd === 0) continue; 
+    // ★ 關鍵修復：這裡不跳過 existingH3s，我們把所有有算分的網格都存起來
+    
+    // ★ 關鍵修復：地理區隔 (Zones) 必須保留！只有該物種曾經出現的同一個區域，才納入預測推論
     if (!zones.has(grid.z)) continue; 
 
     const feats = extractFeats(grid);
     const finalScore = predictMaxEnt(finalModel, finalNormalizeFn, finalActiveFeats, feats); 
 
     if (finalScore > 0.40) {
-      scoredGrids.push({ h3_id, grid, score: finalScore, realDev: feats.dev });
+      // 標記這個網格是否是「已知已調查過 (Ground Truth)」，在渲染階段再決定要不要畫
+      scoredGrids.push({ 
+        h3_id, 
+        grid, 
+        score: finalScore, 
+        realDev: feats.dev, 
+        isSea: feats.sea, 
+        rd: grid.rd,
+        isExisting: existingH3s.has(h3_id) // 記錄此格是否已經有觀測點了
+      });
       if (finalScore > maxScore) maxScore = finalScore;
     }
   }
 
+  // 正規化並回傳
   return scoredGrids
     .map(sg => ({ ...sg, normalizedScore: (sg.score / maxScore) * 100 }))
-    .sort((a, b) => b.normalizedScore - a.normalizedScore)
-    .slice(0, 500); 
+    .sort((a, b) => b.normalizedScore - a.normalizedScore);
 };
 
 // ==========================================
-// 6. 渲染核心邏輯
+// ★ 6. 渲染邏輯 (支援模式切換與智能過濾)
 // ==========================================
+
+const renderMapLayers = () => {
+  if (!map) return;
+  const h3Engine = getH3Engine();
+  
+  layerGroup.clearLayers();
+  recommendationLayerGroup.clearLayers();
+
+  // 渲染模式 1: 調查覆蓋 (顯示歷史資料)
+  if (!isPotentialHabitatMode.value) {
+    cachedRawData.value.forEach(row => {
+      const boundary = h3Engine.cellToBoundary(row.h3_index);
+      const citEffort = row.citizen_effort || 0;
+      const offEffort = row.official_effort || 0;
+      
+      const citBin = getEffortBin(citEffort);
+      const offBin = getEffortBin(offEffort);
+      const hexColor = getBivariateColorCode(citBin, offBin);
+      const fillOpacity = (citEffort === 0 && offEffort === 0) ? 0.0 : 0.78;
+
+      const env = envGridsData.value[row.h3_index];
+      let envHtml = '';
+      if (env) {
+        const realDev = calcRealDev(env);
+        const isSeaStr = isSeaZone(env.z) ? '<b style="color:#0284c7;">🌊 海域</b>' : '陸地';
+        envHtml = `
+          <div style="background: #e2e8f0; padding: 6px; border-radius: 4px; margin-bottom: 6px; color: #334155; border: 1px solid #cbd5e1;">
+            <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #0f172a;">🌍 環境因子 (Ground Truth)</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px;">
+              <span>⛰️ 海拔: <b>${env.alt}m</b></span>
+              <span>📍 區域: ${isSeaStr}</span>
+              <span>🛣️ 易達: <b>${env.rd}</b></span>
+              <span>🏗️ 干擾: <b>${(realDev * 100).toFixed(0)}%</b></span>
+            </div>
+            <div style="font-size: 11px; margin-top: 4px; border-top: 1px dashed #cbd5e1; padding-top: 4px;">
+              🌲林:<b>${env.f}</b> | 🚜農:<b>${env.a}</b> | 💧水:<b>${env.w}</b> | 🌾草:<b>${env.g}</b> | 🏙️城:<b>${env.c}</b>
+            </div>
+          </div>
+        `;
+      }
+
+      const tooltipHtml = `
+        <div style="font-family: sans-serif; min-width: 260px; padding: 4px; font-size: 12px; line-height: 1.4;">
+          <div style="color: ${hexColor}; font-weight: bold; margin-bottom: 6px; font-size: 14px;">已調查網格: ${row.h3_index}</div>
+          ${envHtml}
+          <div style="background: #f1f5f9; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
+            <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 2px;">📂 調查次數</div>
+            <div style="display: flex; gap: 12px;">
+              <span>公民科學: <b style="color: #1d4ed8;">${citEffort}</b></span>
+              <span>非公民科學: <b style="color: #ea580c;">${offEffort}</b></span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      L.polygon(boundary, { color: hexColor, weight: 1.5, stroke: (citEffort > 0 || offEffort > 0), fillColor: hexColor, fillOpacity: fillOpacity })
+        .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(layerGroup);
+    });
+  }
+
+  // 渲染模型結果 (根據模式決定畫什麼)
+  let count = 0;
+  cachedScoredGrids.value.forEach(rg => {
+    // ----------------------------------------------------
+    // 模式 1 (探索推薦)：有路 (rd > 0) 或海域 + 不能是已調查點(isExisting=false) + 取前 500 名
+    // ----------------------------------------------------
+    if (!isPotentialHabitatMode.value) {
+      if (rg.isExisting || (rg.rd === 0 && !rg.isSea) || count >= 500) return;
+      count++;
+
+      const boundary = h3Engine.cellToBoundary(rg.h3_id);
+      const opacity = 0.2 + ((rg.normalizedScore / 100) * 0.6); 
+      const isSeaStr = rg.isSea ? '<b style="color:#0284c7;">🌊 海域</b>' : '陸地';
+      
+      const tooltipHtml = `
+        <div style="font-family: sans-serif; font-size: 13px;">
+          <div style="font-weight: bold; color: #047857;">✨ 推薦探索度: ${rg.normalizedScore.toFixed(1)}%</div>
+          <hr style="margin: 4px 0;">
+          <div style="font-size: 11px;">標高: ${rg.grid.alt}m | 📍 區域: ${isSeaStr} | 易達: ${rg.grid.rd}</div>
+          <div style="font-size: 11px; margin-top: 2px;">🌲林:${rg.grid.f} | 🚜農:${rg.grid.a} | 💧水:${rg.grid.w} | 🏗️干擾指數:${(rg.realDev * 100).toFixed(0)}%</div>
+        </div>
+      `;
+
+      L.polygon(boundary, { color: '#10b981', weight: 1.5, dashArray: '4, 4', fillColor: '#059669', fillOpacity: opacity })
+        .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(recommendationLayerGroup);
+    
+    // ----------------------------------------------------
+    // 模式 2 (潛在棲地)：無視道路，也不管是否已調查過，全部畫出來，構成完整的 SDM 熱區圖
+    // ----------------------------------------------------
+    } else {
+      const boundary = h3Engine.cellToBoundary(rg.h3_id);
+      const hexColor = getHeatmapColor(rg.normalizedScore);
+      // 分數越高越不透明
+      const opacity = Math.max(0.4, (rg.normalizedScore / 100)); 
+
+      const isSeaStr = rg.isSea ? '<b style="color:#0284c7;">🌊 海域</b>' : '陸地';
+      const existingLabel = rg.isExisting ? '<span style="background:#e2e8f0; padding:2px 4px; border-radius:4px; font-size:9px;">(已有紀錄)</span>' : '';
+      
+      const tooltipHtml = `
+        <div style="font-family: sans-serif; font-size: 13px;">
+          <div style="font-weight: bold; color: #b91c1c; display:flex; align-items:center; gap:6px;">
+             🔥 潛在棲地適宜度: ${rg.normalizedScore.toFixed(1)}% ${existingLabel}
+          </div>
+          <hr style="margin: 4px 0;">
+          <div style="font-size: 11px;">標高: ${rg.grid.alt}m | 📍 區域: ${isSeaStr}</div>
+          <div style="font-size: 11px; margin-top: 2px;">🌲林:${rg.grid.f} | 🚜農:${rg.grid.a} | 💧水:${rg.grid.w} | 🏗️干擾指數:${(rg.realDev * 100).toFixed(0)}%</div>
+        </div>
+      `;
+
+      // 潛在棲地為了視覺效果，去掉邊框，只留填充色
+      L.polygon(boundary, { color: hexColor, weight: 0, fillColor: hexColor, fillOpacity: opacity })
+        .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(recommendationLayerGroup);
+    }
+  });
+};
+// 監聽模式切換，觸發重新渲染
+watch(isPotentialHabitatMode, () => {
+  if (cachedRawData.value.length > 0) {
+    renderMapLayers();
+  }
+});
+
+const toggleMapMode = () => {
+  isPotentialHabitatMode.value = !isPotentialHabitatMode.value;
+};
+
+
 const startAnalysis = async () => {
   if (isLoading.value) return;
   isLoading.value = true;
@@ -735,12 +924,12 @@ const startAnalysis = async () => {
 
   aiSummary.value = ''; 
   hasGeneratedReport.value = false;
+  isPotentialHabitatMode.value = false; // 重置回推薦模式
   if (isMobile.value) isMobilePanelOpen.value = false;
 
   try {
-    const h3Engine = getH3Engine();
     let currentOffset = 0;
-    const limitSize = 1000;
+    const limitSize = 10000; // 放大每批次索取量，加快速度
     let expectedTotal = Infinity; 
     let accumulatedValidData = [];
 
@@ -758,60 +947,10 @@ const startAnalysis = async () => {
 
       if (validChunkData.length > 0) {
         accumulatedValidData = [...accumulatedValidData, ...validChunkData];
-        
-        validChunkData.forEach(row => {
-          if (!row.h3_index) return;
-          const boundary = h3Engine.cellToBoundary(row.h3_index);
-          const citEffort = row.citizen_effort || 0;
-          const offEffort = row.official_effort || 0;
-          
-          const citBin = getEffortBin(citEffort);
-          const offBin = getEffortBin(offEffort);
-          const hexColor = getBivariateColorCode(citBin, offBin);
-          const fillOpacity = (citEffort === 0 && offEffort === 0) ? 0.0 : 0.78;
-
-          const env = envGridsData.value[row.h3_index];
-          let envHtml = '';
-          if (env) {
-            const realDev = calcRealDev(env);
-            envHtml = `
-              <div style="background: #e2e8f0; padding: 6px; border-radius: 4px; margin-bottom: 6px; color: #334155; border: 1px solid #cbd5e1;">
-                <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #0f172a;">🌍 環境因子 (Ground Truth)</div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px;">
-                  <span>⛰️ 海拔: <b>${env.alt}m</b></span>
-                  <span>🌡️ 氣溫: <b>${env.tmp}°C</b></span>
-                  <span>🛣️ 易達: <b>${env.rd}</b></span>
-                  <span>🏗️ 干擾: <b>${(realDev * 100).toFixed(0)}%</b></span>
-                </div>
-                <div style="font-size: 11px; margin-top: 4px; border-top: 1px dashed #cbd5e1; padding-top: 4px;">
-                  🌲林:<b>${env.f}</b> | 🚜農:<b>${env.a}</b> | 💧水:<b>${env.w}</b> | 🌾草:<b>${env.g}</b> | 🏙️城:<b>${env.c}</b>
-                </div>
-              </div>
-            `;
-          }
-
-          const tooltipHtml = `
-            <div style="font-family: sans-serif; min-width: 260px; padding: 4px; font-size: 12px; line-height: 1.4;">
-              <div style="color: ${hexColor}; font-weight: bold; margin-bottom: 6px; font-size: 14px;">已調查網格: ${row.h3_index}</div>
-              ${envHtml}
-              <div style="background: #f1f5f9; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
-                <div style="font-size: 11px; font-weight: bold; color: #475569; margin-bottom: 2px;">📂 調查次數</div>
-                <div style="display: flex; gap: 12px;">
-                  <span>公民科學: <b style="color: #1d4ed8;">${citEffort}</b></span>
-                  <span>非公民科學: <b style="color: #ea580c;">${offEffort}</b></span>
-                </div>
-              </div>
-            </div>
-          `;
-
-          L.polygon(boundary, { color: hexColor, weight: 1.5, stroke: (citEffort > 0 || offEffort > 0), fillColor: hexColor, fillOpacity: fillOpacity })
-           .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(layerGroup);
-        });
       }
       currentOffset += data.length;      
-      progress.value = Math.min(80, Math.floor((currentOffset / expectedTotal) * 80));
-      statusMessage.value = `正在繪製調查網格... (${Math.min(currentOffset, expectedTotal)} / ${expectedTotal})`;
-      await new Promise(resolve => setTimeout(resolve, 50));
+      progress.value = Math.min(60, Math.floor((currentOffset / expectedTotal) * 60));
+      statusMessage.value = `下載調查網格資料... (${Math.min(currentOffset, expectedTotal)} / ${expectedTotal})`;
     }
 
     if (accumulatedValidData.length === 0) {
@@ -822,28 +961,24 @@ const startAnalysis = async () => {
       return;
     }
 
+    // 將原始資料存入 Cache
+    cachedRawData.value = accumulatedValidData;
+
     if (envGridsLoaded.value && accumulatedValidData.length > 0) {
-      statusMessage.value = '🤖 正在啟動 RF+MaxEnt 雙核模型...';
+      statusMessage.value = '🤖 啟動雙核模型 (RF+MaxEnt) 預測全台潛在棲地...';
+      progress.value = 75;
       await new Promise(resolve => setTimeout(resolve, 50)); 
       
+      // 計算並快取模型預測結果
       const recommendedGrids = await calculateRecommendations(accumulatedValidData);
+      cachedScoredGrids.value = recommendedGrids;
       
-      recommendedGrids.forEach(rg => {
-        const boundary = h3Engine.cellToBoundary(rg.h3_id);
-        const opacity = 0.2 + ((rg.normalizedScore / 100) * 0.6); 
-        
-        const tooltipHtml = `
-          <div style="font-family: sans-serif; font-size: 13px;">
-            <div style="font-weight: bold; color: #047857;">✨ 雙核模型推薦度: ${rg.normalizedScore.toFixed(1)}%</div>
-            <hr style="margin: 4px 0;">
-            <div style="font-size: 11px;">標高: ${rg.grid.alt}m | 氣溫: ${rg.grid.tmp}°C | 易達性: ${rg.grid.rd}</div>
-            <div style="font-size: 11px; margin-top: 2px;">🌲林:${rg.grid.f} | 🚜農:${rg.grid.a} | 💧水:${rg.grid.w} | 🏗️干擾指數:${(rg.realDev * 100).toFixed(0)}%</div>
-          </div>
-        `;
-
-        L.polygon(boundary, { color: '#10b981', weight: 1.5, dashArray: '4, 4', fillColor: '#059669', fillOpacity: opacity })
-         .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(recommendationLayerGroup);
-      });
+      progress.value = 90;
+      statusMessage.value = '正在渲染地圖圖層...';
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // 呼叫統一的渲染函數
+      renderMapLayers();
     }
 
     progress.value = 100;
