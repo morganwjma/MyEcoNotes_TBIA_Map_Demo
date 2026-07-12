@@ -177,7 +177,7 @@
               </div>
               <div class="flex justify-between items-center mt-1">
                 <span class="text-[10px] text-blue-600 leading-tight pr-2">
-                  {{ nicheProfile.usedMode === 'borrow_opp' ? '系統樣本不足 100 格，已自動調用部分公民資料充實訓練集。' : '公民樣本不足 20 格，已自動調用部分系統資料確保盲測穩定性。' }}
+                  {{ nicheProfile.usedMode === 'borrow_opp' ? '系統樣本不足 100 格，已自動調用部分隨機調查資料充實訓練集。' : '隨機調查樣本不足 20 格，已自動調用部分系統資料確保盲測穩定性。' }}
                 </span>
                 <span class="bg-blue-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%</span>
               </div>
