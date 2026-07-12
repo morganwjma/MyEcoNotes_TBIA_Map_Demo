@@ -304,13 +304,6 @@ const envGridsLoaded = ref(false);
 const envGridsData = shallowRef({});
 const historicalGapsDB = shallowRef({});
 
-const taxonomyLevels = [
- { key: 'class', label: '綱 (Class)' },
- { key: 'order', label: '目 (Order)' },
- { key: 'family', label: '科 (Family)' },
- { key: 'genus', label: '屬 (Genus)' },
- { key: 'species', label: '種/學名 (Species)' }
-];
 
 // ==========================================
 // 2. 顏色、資料處理與特徵函數
