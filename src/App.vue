@@ -26,7 +26,7 @@
             智慧物種檢索 (支援任意階層)
           </h2>
           <p class="text-[10px] text-slate-500 mb-4 leading-relaxed">
-            系統將自動從分類樹逆向路由。不需輸入「綱」，可直接輸入目、科、屬、種。
+            可直接輸入綱、目、科、屬、種的拉丁學名，複數分類群可以用半形","間隔做查詢。例如：Lycaenidae,Pieridae
           </p>
           <div class="space-y-3">
             <div>
@@ -283,7 +283,7 @@ onUnmounted(() => window.removeEventListener('resize', handleResize));
 const toggleMobilePanel = () => { if (isMobile.value) isMobilePanelOpen.value = !isMobilePanelOpen.value; };
 
 // 智慧檢索單一輸入框取代繁瑣的表單
-const searchInput = ref('Cetacea'); // 預設輸入一個
+const searchInput = ref('Platalea'); // 預設輸入一個
 const excludeInput = ref('');
 
 const form = computed(() => ({
