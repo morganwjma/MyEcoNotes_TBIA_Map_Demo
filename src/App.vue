@@ -68,7 +68,7 @@
       <div ref="mapContainer" class="absolute inset-0 w-full h-full"></div>
      
       <div class="absolute bottom-6 right-6 z-[9999] flex flex-col items-end gap-3 pointer-events-auto">
-        <button v-if="hasGeneratedReport" @click.stop="toggleMapMode"
+        <button v-if="hasGeneratedReport && cachedScoredGrids.length > 0" @click.stop="toggleMapMode"
                 class="w-14 h-14 bg-white/90 hover:bg-white backdrop-blur-md rounded-full shadow-lg border border-slate-200 flex items-center justify-center transition-all duration-300"
                 :class="{'ring-4 ring-emerald-500 ring-opacity-50': isPotentialHabitatMode}">
           <svg v-if="!isPotentialHabitatMode" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -90,7 +90,7 @@
                  <div class="w-1/4 h-full" v-for="x in [0,1,2,3]" :key="'thumb_x'+x" :style="{ backgroundColor: getBivariateColorCode(x, y) }"></div>
                </div>
              </div>
-             <div v-else class="w-9 h-9 rounded-md bg-gradient-to-t from-[#fef08a] via-[#ef4444] to-[#7f1d1d] shadow-inner flex items-center justify-center">
+             <div v-else-if="cachedScoredGrids.length > 0" class="w-9 h-9 rounded-md bg-gradient-to-t from-[#fef08a] via-[#ef4444] to-[#7f1d1d] shadow-inner flex items-center justify-center">
                 <span class="text-[10px] text-white font-bold drop-shadow-md tracking-widest">SDM</span>
              </div>
           </div>
@@ -99,10 +99,10 @@
              <button @click.stop="isLegendExpanded = false" class="absolute top-2 right-2 text-slate-400 hover:text-slate-600 font-bold w-6 h-6 bg-slate-100 rounded-full z-10">×</button>
              <div v-if="!isPotentialHabitatMode" class="flex-1 flex flex-col">
                <div class="border-b border-slate-200 pb-2 mb-2">
-                 <span class="text-xs font-bold text-slate-800">調查覆蓋 <span class="text-emerald-600 ml-1 font-semibold">+ 推薦區(綠)</span></span>
-                  <div class="text-[10px] text-emerald-700 font-bold mt-1 flex items-center gap-1">
-                    <span class="w-3 h-3 border-2 border-emerald-500 bg-slate-400 rounded-sm shadow-sm"></span>綠框灰底：歷史缺失探索區
-                  </div>
+                 <span class="text-xs font-bold text-slate-800">調查覆蓋 <span class="text-emerald-600 ml-1 font-semibold" v-if="cachedScoredGrids.length > 0">+ 推薦區(綠)</span></span>
+                 <div class="text-[10px] text-emerald-700 font-bold mt-1 flex items-center gap-1">
+                   <span class="w-3 h-3 border-2 border-emerald-500 bg-slate-400 rounded-sm shadow-sm"></span>綠框灰底：歷史缺失探索區
+                 </div>
                </div>
                <div class="relative w-28 h-28 mx-auto mt-2">
                  <div class="absolute w-20 h-20 rotate-[-45deg] flex flex-col shadow-xl left-4 top-2 rounded-sm overflow-hidden">
@@ -115,7 +115,7 @@
                  <span class="text-orange-700">非公民</span><span class="text-blue-700">公民</span>
                </div>
              </div>
-             <div v-else class="flex-1 flex flex-col">
+             <div v-else-if="cachedScoredGrids.length > 0" class="flex-1 flex flex-col">
                <div class="border-b border-slate-200 pb-2 mb-3">
                  <span class="text-xs font-bold text-slate-800">MaxEnt 潛在棲地適宜度</span>
                </div>
@@ -142,7 +142,19 @@
        
         <div class="p-5 flex-1 max-h-[80vh] overflow-y-auto">
          
-          <div v-if="nicheProfile && nicheProfile.importance" class="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div v-if="nicheProfile && nicheProfile.usedMode === 'insufficient'" class="mb-5 p-4 bg-rose-50 border border-rose-200 rounded-xl shadow-sm">
+            <div class="font-bold flex items-center gap-2 text-rose-700 mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              </svg>
+              🛑 樣本數不足 (未能啟動 SDM 潛在棲地分析)
+            </div>
+            <div class="text-xs text-rose-600 leading-relaxed">
+              本次調查分布網格數量未達系統要求的 50 格最低門檻。為確保科學嚴謹性並避免演算法過度擬合 (Overfitting)，已自動暫停本次的空間分布推論，請持續累積調查資料。
+            </div>
+          </div>
+
+          <div v-else-if="nicheProfile && nicheProfile.importance" class="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4">
             <h3 class="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-3 border-l-2 border-emerald-500 pl-2 flex items-center justify-between">
               <span>🧬 RF + MaxEnt 雙核預測引擎</span>
             </h3>
@@ -150,26 +162,35 @@
             <div v-if="nicheProfile.usedMode === 'strict'" class="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700 flex flex-col gap-1 shadow-sm">
               <div class="font-bold flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                🚀 嚴格驗證模式 (Strict Train/Test Split)
+                🚀 嚴格驗證模式 (系統訓練 / 公民盲測)
               </div>
               <div class="flex justify-between items-center mt-1">
-                <span class="text-[10px] text-indigo-600 leading-tight pr-2">資料充足，系統調查訓練，公民科學盲測。</span>
-                <span class="bg-indigo-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">
-                  準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%
+                <span class="text-[10px] text-indigo-600 leading-tight pr-2">資料極度充足，完美切割，防止資料洩漏。</span>
+                <span class="bg-indigo-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%</span>
+              </div>
+            </div>
+
+            <div v-else-if="nicheProfile.usedMode === 'borrow_opp' || nicheProfile.usedMode === 'borrow_sys'" class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 flex flex-col gap-1 shadow-sm">
+              <div class="font-bold flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                🔄 動態調度模式 (Dynamic Allocation)
+              </div>
+              <div class="flex justify-between items-center mt-1">
+                <span class="text-[10px] text-blue-600 leading-tight pr-2">
+                  {{ nicheProfile.usedMode === 'borrow_opp' ? '系統樣本不足 100 格，已自動調用部分公民資料充實訓練集。' : '公民樣本不足 20 格，已自動調用部分系統資料確保盲測穩定性。' }}
                 </span>
+                <span class="bg-blue-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%</span>
               </div>
             </div>
            
-            <div v-else class="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex flex-col gap-1 shadow-sm">
+            <div v-else-if="nicheProfile.usedMode === 'mixed_ratio'" class="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex flex-col gap-1 shadow-sm">
               <div class="font-bold flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                🧩 彈性混合模式 (Adaptive Fallback)
+                🧩 彈性混合模式 (隨機 5:1 分配)
               </div>
               <div class="flex justify-between items-center mt-1">
-                <span class="text-[10px] text-amber-600 leading-tight pr-2">動態降級：合併訓練集並抽樣驗證以確保收斂。</span>
-                <span class="bg-amber-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">
-                  準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%
-                </span>
+                <span class="text-[10px] text-amber-600 leading-tight pr-2">總網格數低於 120，已將所有資料合併並按比例重抽樣。</span>
+                <span class="bg-amber-600 text-white px-2 py-0.5 rounded font-bold whitespace-nowrap">準確率: {{ (nicheProfile.validationScore * 100).toFixed(1) }}%</span>
               </div>
             </div>
 
@@ -186,7 +207,6 @@
             <div class="text-[10px] text-slate-500 font-bold flex justify-between mb-2">
               <span>🏔️ 階段二：MaxEnt 環境特徵正負關聯</span>
             </div>
-           
             <div class="space-y-3">
               <div v-for="feat in nicheProfile.importance" :key="feat.name" class="flex items-center text-xs">
                 <span class="w-16 text-slate-600 font-bold">{{ getFeatLabel(feat.name) }}</span>
@@ -211,7 +231,7 @@
               </div>
               <div class="bg-white p-2 rounded shadow-sm">
                 <div class="text-slate-400 text-[10px]">歷史缺失網格數</div>
-                <div class="font-bold text-fuchsia-600 text-lg">{{ reportData.totalGaps }}</div>
+                <div class="font-bold text-emerald-600 text-lg">{{ reportData.totalGaps }}</div>
               </div>
               <div class="bg-white p-2 rounded shadow-sm flex items-center justify-between gap-2 col-span-2">
                 <div class="flex-1">
@@ -235,7 +255,7 @@
               AI 專家小結
             </h3>
             <div class="text-slate-700 text-sm leading-relaxed p-4 bg-emerald-50/50 rounded-xl border border-emerald-100 min-h-[100px]">
-              <template v-if="isGeneratingAI">正在從空間資料萃取特徵，撰寫分析報告中...</template>
+              <template v-if="isGeneratingAI">正在萃取空間特徵撰寫分析報告...</template>
               <template v-else>{{ aiSummary }}</template>
             </div>
           </div>
@@ -251,7 +271,6 @@ import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as h3 from 'h3-js';
 
-// 匯入本地資料引擎
 import { getHabitatGridDataLocal } from './services/localDataEngine';
 
 // ==========================================
@@ -282,8 +301,7 @@ onMounted(() => window.addEventListener('resize', handleResize));
 onUnmounted(() => window.removeEventListener('resize', handleResize));
 const toggleMobilePanel = () => { if (isMobile.value) isMobilePanelOpen.value = !isMobilePanelOpen.value; };
 
-// 智慧檢索單一輸入框取代繁瑣的表單
-const searchInput = ref('Platalea'); // 預設輸入一個
+const searchInput = ref('Platalea'); 
 const excludeInput = ref('');
 
 const form = computed(() => ({
@@ -302,8 +320,6 @@ let gapLayerGroup = null;
 
 const envGridsLoaded = ref(false);
 const envGridsData = shallowRef({});
-const historicalGapsDB = shallowRef({});
-
 
 // ==========================================
 // 2. 顏色、資料處理與特徵函數
@@ -330,11 +346,6 @@ const getHeatmapColor = (percentage) => {
  const g = Math.round(240 - p * (240 - 29));
  const b = Math.round(138 - p * (138 - 29));
  return `rgb(${r}, ${g}, ${b})`;
-};
-
-const parseInputOrArray = (str) => {
- if (!str || str.trim() === '') return [];
- return str.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
 };
 
 const getH3Engine = () => {
@@ -417,11 +428,6 @@ onMounted(() => {
    .then(res => res.json())
    .then(data => { envGridsData.value = data; envGridsLoaded.value = true; })
    .catch(e => console.error("環境底圖載入失敗", e));
-
- fetch('/data/database/historical_raw_map.json')
-   .then(res => res.json())
-   .then(data => { historicalGapsDB.value = data; })
-   .catch(e => console.warn("找不到歷史空缺資料檔", e));
 });
 
 // ==========================================
@@ -445,17 +451,15 @@ const calculateRecommendations = async (tbiaGrids) => {
  const oppProfiles = oppGrids.map(d => envGrids[d.h3_index]).filter(Boolean);
  const allProfiles = [...sysProfiles, ...oppProfiles];
 
- if (allProfiles.length === 0) return [];
+ const totalDataCount = allProfiles.length;
+ if (totalDataCount < 50) {
+    nicheProfile.value = { usedMode: 'insufficient', error: '資料分佈網格過少' };
+    return [];
+ }
 
  const zones = new Set(allProfiles.map(p => p.z));
-
- const totalSysEffort = sysGrids.reduce((sum, d) => sum + (d.official_effort || 0), 0);
- const totalOppEffort = oppGrids.reduce((sum, d) => sum + (d.citizen_effort || 0), 0);
- const ADVANCED_THRESHOLD = 500;
- const isDataRich = totalSysEffort >= ADVANCED_THRESHOLD && totalOppEffort >= ADVANCED_THRESHOLD;
-
  const allH3s = Object.keys(envGrids);
-  const availableNegH3s = allH3s.filter(h3 =>
+ const availableNegH3s = allH3s.filter(h3 =>
    !existingH3s.has(h3) && (envGrids[h3].rd > 0 || isSeaZone(envGrids[h3].z)) && zones.has(envGrids[h3].z)
  );
 
@@ -546,7 +550,7 @@ const calculateRecommendations = async (tbiaGrids) => {
    let bestModel = null; let bestRecall = 0; let currentEpochs = 200; const learningRate = 0.5;
 
    for (let attempt = 1; attempt <= 3; attempt++) {
-     statusMessage.value = `🏔️ 階段二：訓練 MaxEnt 中 [${modeName}] (第 ${attempt} 輪)...`;
+     statusMessage.value = `🏔️ 階段二：訓練 MaxEnt 中... (第 ${attempt} 輪)`;
      await new Promise(r => setTimeout(r, 10));
      const model = trainMaxEnt(trainData, normalizeFn, selectedFeats, currentEpochs, learningRate);
      if (attempt === 1) bestModel = model;
@@ -560,28 +564,55 @@ const calculateRecommendations = async (tbiaGrids) => {
    return { model: bestModel, normalizeFn, activeFeats: selectedFeats, droppedFeats, recall: bestRecall };
  };
 
- let finalModel = null, finalNormalizeFn = null, finalActiveFeats = [], finalDroppedFeats = [];
- let validationScore = 0, usedMode = '', tryFallback = false;
+ // ★ 動態資料分流邏輯 (更新為 100 : 20 門檻)
+ let trainProfiles = [];
+ let testProfiles = [];
+ let usedMode = '';
 
- if (isDataRich) {
-   const result = await executePipeline(sysProfiles, oppProfiles, '嚴格驗證模式');
-   if (result.recall >= 0.65) { finalModel = result.model; finalNormalizeFn = result.normalizeFn; finalActiveFeats = result.activeFeats; finalDroppedFeats = result.droppedFeats; validationScore = result.recall; usedMode = 'strict'; } else tryFallback = true;
- } else tryFallback = true;
+ if (totalDataCount < 120) {
+     const shuffled = [...allProfiles];
+     for (let i = shuffled.length - 1; i > 0; i--) {
+         const j = Math.floor(Math.random() * (i + 1));
+         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+     }
+     const splitIndex = Math.floor(totalDataCount * (5/6));
+     trainProfiles = shuffled.slice(0, splitIndex);
+     testProfiles = shuffled.slice(splitIndex);
+     usedMode = 'mixed_ratio';
+ } else {
+     let sys = [...sysProfiles];
+     let opp = [...oppProfiles];
 
- if (tryFallback) {
-   let oppTrain = [], oppTest = [], sysTrain = [...sysProfiles];
-   if (oppProfiles.length >= 5) { const testSize = Math.max(1, Math.floor(oppProfiles.length * 0.1)); oppTest = getSystematicSamples(oppProfiles, testSize); oppTrain = oppProfiles.filter(p => !oppTest.includes(p)); } else if (sysProfiles.length >= 5) { const testSize = Math.max(1, Math.floor(sysProfiles.length * 0.1)); oppTest = getSystematicSamples(sysProfiles, testSize); sysTrain = sysProfiles.filter(p => !oppTest.includes(p)); } else { oppTrain = [...oppProfiles]; sysTrain = [...sysProfiles]; oppTest = []; }
-   const trainProfiles = [...sysTrain, ...oppTrain]; const result = await executePipeline(trainProfiles, oppTest, '混合降級模式'); finalModel = result.model; finalNormalizeFn = result.normalizeFn; finalActiveFeats = result.activeFeats; finalDroppedFeats = result.droppedFeats; validationScore = result.recall; usedMode = 'fallback';
+     if (sys.length < 100) {
+         const needed = 100 - sys.length;
+         const borrowed = opp.splice(0, needed);
+         sys.push(...borrowed);
+         usedMode = 'borrow_opp';
+     } else if (opp.length < 20) {
+         const needed = 20 - opp.length;
+         const borrowed = sys.splice(0, needed);
+         opp.push(...borrowed);
+         usedMode = 'borrow_sys';
+     } else {
+         usedMode = 'strict';
+     }
+     trainProfiles = sys;
+     testProfiles = opp;
  }
 
- let totalWeightAbs = 0; if (finalModel) finalActiveFeats.forEach(f => totalWeightAbs += Math.abs(finalModel.weights[f]));
- const sortedImportance = finalActiveFeats.map(f => ({ name: f, percent: totalWeightAbs === 0 ? 0 : Math.round((Math.abs(finalModel.weights[f]) / totalWeightAbs) * 100), sign: finalModel.weights[f] >= 0 ? 1 : -1 })).filter(item => item.percent > 0).sort((a, b) => b.percent - a.percent);
- nicheProfile.value = { importance: sortedImportance, droppedFeatures: finalDroppedFeats, usedMode, validationScore };
+ const result = await executePipeline(trainProfiles, testProfiles, usedMode);
+ if (!result) return [];
+
+ let totalWeightAbs = 0; 
+ result.activeFeats.forEach(f => totalWeightAbs += Math.abs(result.model.weights[f]));
+ const sortedImportance = result.activeFeats.map(f => ({ name: f, percent: totalWeightAbs === 0 ? 0 : Math.round((Math.abs(result.model.weights[f]) / totalWeightAbs) * 100), sign: result.model.weights[f] >= 0 ? 1 : -1 })).filter(item => item.percent > 0).sort((a, b) => b.percent - a.percent);
+ 
+ nicheProfile.value = { importance: sortedImportance, droppedFeatures: result.droppedFeats, usedMode, validationScore: result.recall };
 
  let scoredGrids = []; let maxScore = 0;
  for (const [h3_id, grid] of Object.entries(envGrids)) {
    if (!zones.has(grid.z)) continue;
-   const feats = extractFeats(grid); const finalScore = predictMaxEnt(finalModel, finalNormalizeFn, finalActiveFeats, feats);
+   const feats = extractFeats(grid); const finalScore = predictMaxEnt(result.model, result.normalizeFn, result.activeFeats, feats);
    if (finalScore > 0.40) {
      scoredGrids.push({ h3_id, grid, score: finalScore, realDev: feats.dev, isSea: feats.sea, rd: grid.rd, isExisting: existingH3s.has(h3_id) });
      if (finalScore > maxScore) maxScore = finalScore;
@@ -591,9 +622,8 @@ const calculateRecommendations = async (tbiaGrids) => {
 };
 
 // ==========================================
-// ★ 6. 渲染邏輯 (補齊環境因子細節與綠網格點擊功能)
+// ★ 6. 渲染邏輯
 // ==========================================
-
 const renderMapLayers = () => {
  if (!map) return;
  const h3Engine = getH3Engine();
@@ -601,42 +631,35 @@ const renderMapLayers = () => {
  recommendationLayerGroup.clearLayers();
  gapLayerGroup.clearLayers();
 
- // --- A. 需求1&2修復：渲染歷史缺失網格（靜態綠框灰底 + 動態 Popup 探索標籤卡） ---
-if (!isPotentialHabitatMode.value && cachedGapData.value.length > 0) {
-  cachedGapData.value.forEach(gap => {
-    try {
-        const boundary = h3Engine.cellToBoundary(gap.h3_idx);
-        // Popup 樣式也配合改為綠/灰科技感，拔除原本的紫色
-        const popupHtml = `
-          <div style="font-family: sans-serif; padding: 4px; min-width: 220px;">
-            <div style="font-weight: bold; color: #047857; font-size: 14px; display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
-               🗺️ 歷史缺失探索標籤
-            </div>
-            <hr style="margin: 6px 0; border: 0; border-top: 1px dashed #cbd5e1;">
-            <p style="font-size: 12px; margin: 0; color: #475569; line-height: 1.5;">
-               該網格在 2000~2010 歷史數據中「曾有紀錄」，但近年（2023~2025）事實庫中完全為零。強烈推薦重返探勘！
-            </p>
-            <div style="font-size: 12px; margin-top: 8px; font-weight: bold; color: #334155;">
-               🎯 曾出現物種：<br>
-               <span style="color: #64748b; font-weight: normal;">${gap.species.join(', ')}</span>
-            </div>
-            <div style="font-size: 10px; margin-top: 8px; color: #94a3b8; font-family: monospace; background: #f8fafc; padding: 4px; border-radius: 4px;">網格代碼: ${gap.h3_idx}</div>
-          </div>
-        `;
-        
-        // ★ 效能解放：改用靜態的綠色邊框與灰色半透明填充
-        L.polygon(boundary, {
-            color: '#10b981',       // 綠色邊框 (emerald-500)
-            stroke: true, 
-            weight: 2,              // 邊框粗細適中
-            fillColor: '#94a3b8',   // 灰色填充 (slate-400)
-            fillOpacity: 0.55       // 半透明讓底圖透出來
-        }).bindPopup(popupHtml).addTo(gapLayerGroup);
-    } catch(e){}
-  });
-}
+ // 歷史空缺
+ if (!isPotentialHabitatMode.value && cachedGapData.value.length > 0) {
+   cachedGapData.value.forEach(gap => {
+     try {
+         const boundary = h3Engine.cellToBoundary(gap.h3_idx);
+         const popupHtml = `
+           <div style="font-family: sans-serif; padding: 4px; min-width: 220px;">
+             <div style="font-weight: bold; color: #047857; font-size: 14px; display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
+                🗺️ 歷史缺失探索標籤
+             </div>
+             <hr style="margin: 6px 0; border: 0; border-top: 1px dashed #cbd5e1;">
+             <p style="font-size: 12px; margin: 0; color: #475569; line-height: 1.5;">
+                該網格在 2000~2010 歷史數據中「曾有紀錄」，但近年事實庫中為零。強烈推薦探勘！
+             </p>
+             <div style="font-size: 12px; margin-top: 8px; font-weight: bold; color: #334155;">
+                🎯 曾出現物種：<br>
+                <span style="color: #64748b; font-weight: normal;">${gap.species.join(', ')}</span>
+             </div>
+             <div style="font-size: 10px; margin-top: 8px; color: #94a3b8; font-family: monospace; background: #f8fafc; padding: 4px; border-radius: 4px;">網格代碼: ${gap.h3_idx}</div>
+           </div>
+         `;
+         L.polygon(boundary, {
+             color: '#10b981', stroke: true, weight: 2, fillColor: '#94a3b8', fillOpacity: 0.55
+         }).bindPopup(popupHtml).addTo(gapLayerGroup);
+     } catch(e){}
+   });
+ }
 
- // --- B. 需求2修復：完整還原已調查網格的「所有環境因子 Ground Truth 資訊」 ---
+ // 調查網格
  if (!isPotentialHabitatMode.value) {
    cachedRawData.value.forEach(row => {
      const boundary = h3Engine.cellToBoundary(row.h3_index);
@@ -676,7 +699,7 @@ if (!isPotentialHabitatMode.value && cachedGapData.value.length > 0) {
    });
  }
 
- // --- C. 需求2修復：為推薦探索度綠色網格加上 .bindTooltip 語法，解鎖點擊與懸浮 ---
+ // SDM 預測網格
  let count = 0;
  cachedScoredGrids.value.forEach(rg => {
    if (!isPotentialHabitatMode.value) {
@@ -702,7 +725,6 @@ if (!isPotentialHabitatMode.value && cachedGapData.value.length > 0) {
      L.polygon(boundary, { color: '#10b981', weight: 1.5, dashArray: '4, 4', fillColor: '#059669', fillOpacity: opacity })
        .bindTooltip(tooltipHtml, { className: 'custom-tooltip' }).addTo(recommendationLayerGroup);
    } else {
-     // 純 SDM 棲地適宜度圖層
      const boundary = h3Engine.cellToBoundary(rg.h3_id);
      const hexColor = getHeatmapColor(rg.normalizedScore);
      const isSeaStr = rg.isSea ? '海域' : '陸地';
@@ -727,7 +749,7 @@ watch(isPotentialHabitatMode, () => { if (cachedRawData.value.length > 0) render
 const toggleMapMode = () => { isPotentialHabitatMode.value = !isPotentialHabitatMode.value; };
 
 // ==========================================
-// 7. 啟動入口：解構接收物件結果
+// 7. 啟動入口
 // ==========================================
 const startAnalysis = async () => {
   if (isLoading.value) return;
@@ -750,7 +772,6 @@ const startAnalysis = async () => {
   try {
     statusMessage.value = '正在啟動本地資料引擎...';
     
-    // ★ 1. 呼叫引擎，取得包含近年資料與歷史空缺的物件
     const engineResult = await getHabitatGridDataLocal(
       form.value,
       (p) => {
@@ -759,11 +780,9 @@ const startAnalysis = async () => {
       }
     );
 
-    // ★ 2. 致命修復：在這裡把兩個陣列安全地解構出來！
     const accumulatedValidData = engineResult.gridRows || [];
     const historicalGaps = engineResult.historicalGaps || [];
 
-    // ★ 3. 防呆檢查
     if (accumulatedValidData.length === 0) {
       alert(`在目前的資料庫中，找不到包含 "${searchInput.value}" 的近年觀測紀錄。`);
       statusMessage.value = '無相符紀錄'; 
@@ -772,16 +791,14 @@ const startAnalysis = async () => {
       return;
     }
 
-    // ★ 4. 將資料分別存入 Vue 的快取變數中，供 Leaflet 渲染
     cachedRawData.value = accumulatedValidData;
-    cachedGapData.value = historicalGaps; // 這裡就不會再報錯了！
+    cachedGapData.value = historicalGaps; 
 
     if (envGridsLoaded.value && accumulatedValidData.length > 0) {
       statusMessage.value = '🤖 啟動雙核模型 (本地邊緣運算)...';
       progress.value = 75;
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // 執行機器學習預測
       cachedScoredGrids.value = await calculateRecommendations(accumulatedValidData);
       
       progress.value = 90;
@@ -817,7 +834,6 @@ const startAnalysis = async () => {
 .absolute.bottom-4.right-4 { z-index: 9999 !important; pointer-events: auto !important; }
 .bivariate-cell { transition: transform 0.1s; border: 1px solid rgba(255,255,255,0.2); }
 .bivariate-cell:hover { transform: scale(1.15); z-index: 10; border: 1px solid #94a3b8; box-shadow: 0 0 10px rgba(0,0,0,0.15); }
-
 
 :deep(.leaflet-tooltip.custom-tooltip) {
  background: rgba(255, 255, 255, 0.95) !important;
