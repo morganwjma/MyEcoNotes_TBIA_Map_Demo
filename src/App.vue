@@ -162,7 +162,7 @@
             <div v-if="nicheProfile.usedMode === 'strict'" class="mb-3 p-2 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700 flex flex-col gap-1 shadow-sm">
               <div class="font-bold flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                🚀 嚴格驗證模式 (系統訓練 / 公民盲測)
+                 嚴格驗證模式 (系統調查資料訓練 / 隨機調查資料盲測)
               </div>
               <div class="flex justify-between items-center mt-1">
                 <span class="text-[10px] text-indigo-600 leading-tight pr-2">資料極度充足，完美切割，防止資料洩漏。</span>
